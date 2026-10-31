@@ -1,6 +1,8 @@
 // Keeps the app, schedule and map data available offline.
-const CACHE = 'wa-v4';
+const CACHE = 'wa-v5';
 const FILES = ['./', 'index.html', 'app.css', 'app.js', 'config.js', 'manifest.webmanifest',
+  'assets/icon.svg', 'assets/icon-32.png', 'assets/icon-192.png', 'assets/icon-512.png', 'assets/apple-touch-icon.png',
+  'assets/hero-640.webp', 'assets/hero-1280.webp', 'assets/hero-1920.webp', 'assets/og.jpg',
   'data/schedule.json', 'data/rooms.json', 'data/sessions-full.json', 'data/partner-events.json',
   'data/freefood.json', 'data/recruiters.json', 'data/companies.json', 'data/booths.json', 'data/guide-meta.json'];
 const NET_WAIT_MS = 3000;

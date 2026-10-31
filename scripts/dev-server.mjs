@@ -21,7 +21,11 @@ await db.exec(readFileSync('supabase/crew.sql', 'utf8'));
 
 const FNS = ['sign_in', 'sign_out', 'get_state', 'set_status', 'set_attendance', 'add_agreed',
   'set_phone', 'create_pair_code', 'accept_pair', 'unpair', 'set_checkin'];
-const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.svg': 'image/svg+xml', '.webmanifest': 'application/manifest+json' };
+const TYPES = {
+  '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json',
+  '.svg': 'image/svg+xml', '.webmanifest': 'application/manifest+json',
+  '.png': 'image/png', '.jpg': 'image/jpeg', '.webp': 'image/webp'
+};
 
 createServer(async (req, res) => {
   const url = new URL(req.url, 'http://x');

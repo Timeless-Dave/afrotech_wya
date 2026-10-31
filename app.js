@@ -6,6 +6,7 @@ const LOCAL_NAMES = ['Aldine', 'Angel', 'Aziz', 'Grace', 'Kenny', 'Kudzi', 'Pete
 const PUBLIC = new Set(['guide', 'now', 'map', 'signin']);
 const FLOOR_HONEST = 'GPS cannot tell which floor you are on indoors. Set the level yourself. Phone altitude, when the phone has it, is only a hint. It is not a floor.';
 const POLL_MS = 20000;
+const POLL_FAST_MS = 12000;
 const LIVE_BEAT_MS = 60000;
 const STALE_MANUAL_MS = 45 * 60000;
 const STALE_LIVE_MS = 5 * 60000;
@@ -1083,7 +1084,18 @@ window.addEventListener('hashchange', () => {
 window.addEventListener('online', sync);
 window.addEventListener('offline', () => { net.ok = false; render(); });
 document.addEventListener('visibilitychange', () => { if (!document.hidden) sync(); });
-setInterval(() => { if (!document.hidden) sync(); }, POLL_MS);
+function pollIntervalMs() {
+  let r = location.hash.replace(/^#/, '').split('&')[0];
+  if (r.startsWith('pair=')) r = session ? 'crew' : 'guide';
+  return (r === 'friends' || r === 'crew' || r === 'map') ? POLL_FAST_MS : POLL_MS;
+}
+let pollTimer = null;
+function armPoll() {
+  if (pollTimer) clearInterval(pollTimer);
+  pollTimer = setInterval(() => { if (!document.hidden) sync(); }, pollIntervalMs());
+}
+armPoll();
+window.addEventListener('hashchange', armPoll);
 setInterval(() => { if (!document.hidden) render(); }, 30000);
 
 (function capturePair() {
