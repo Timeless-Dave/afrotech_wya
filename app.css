@@ -9,7 +9,7 @@
   --warn: #8a5a00;
 }
 * { box-sizing: border-box; }
-html { -webkit-text-size-adjust: 100%; }
+html { -webkit-text-size-adjust: 100%; scroll-padding-top: 12px; scroll-padding-bottom: 96px; }
 body {
   margin: 0; background: var(--bg); color: var(--text);
   font: 16px/1.4 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
@@ -64,3 +64,36 @@ svg .count { fill: var(--accent); }
 svg .count-text { fill: var(--accent-text); font-weight: 700; }
 .offplan { border: 2px dashed var(--muted); border-radius: 8px; text-align: left; }
 .offplan.sel { border-color: var(--accent); }
+.tabs {
+  width: 100%; max-width: 100%; min-width: 0;
+  overflow-x: auto; scrollbar-width: none;
+  padding-bottom: env(safe-area-inset-bottom);
+}
+main { overflow-wrap: break-word; }
+.tabs::-webkit-scrollbar { display: none; }
+.tabs a { flex: 0 0 auto; padding: 14px 12px; font-size: 14px; white-space: nowrap; }
+.tabs a[hidden] { display: none; }
+body { padding-bottom: calc(72px + env(safe-area-inset-bottom)); }
+a.btn { display: inline-flex; align-items: center; justify-content: center; min-height: 44px; padding: 8px 14px; border-radius: 8px; border: 1px solid var(--line); text-decoration: none; color: var(--text); background: var(--bg); }
+.actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 8px 0; }
+button, a.btn, .seg { scroll-margin-bottom: 96px; }
+.conflict { background: #fff4d6; color: var(--warn); padding: 8px 10px; border-radius: 8px; }
+.codebig { font: 700 28px/1.2 ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: .08em; word-break: break-all; }
+.search { display: block; margin: 8px 0; font-size: 14px; color: var(--muted); }
+.note { color: var(--accent); }
+.src { padding-left: 18px; }
+.src li { margin: 6px 0; }
+svg .room.approx { stroke-dasharray: 5 4; fill: #fff; }
+svg .pin { fill: #8a5a00; }
+svg text { font-size: 11px; }
+@media (min-width: 900px) {
+  body { padding-bottom: 24px; }
+  main { max-width: 1040px; }
+  .sync { position: static; }
+  .tabs {
+    position: sticky; top: 0; bottom: auto; z-index: 3;
+    border-top: 0; border-bottom: 1px solid var(--line); justify-content: center;
+  }
+  .cards { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 14px; align-items: start; }
+  .cards .row { border: 1px solid var(--line); border-radius: 10px; padding: 12px; }
+}

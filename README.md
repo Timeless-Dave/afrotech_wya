@@ -1,51 +1,112 @@
-# Where Are You: AfroTech 2026 group tracker
+# Where Are You: AfroTech 2026
 
-A small group tracker for our AfroTech trip (GRB, Houston, Mon Nov 2 to Thu Nov 5 12:00 PM). It has six screens: sign in, Friends, Now, Map, Schedule and Me.
+A phone-first guide and crew finder for AfroTech at the George R. Brown Convention Center in Houston, Nov 2–6 2026 (partner events Nov 1–7). It also keeps the original group tracker: Friends, an agreed schedule, and “At GRB / Away from GRB”.
 
-## Setup (about 5 minutes)
+Times are America/Chicago.
 
-1. **Create a Supabase project.** Go to https://supabase.com and create a free project.
-2. **Create the database.**
-   - Open `supabase/schema.sql` and replace `CHANGE-ME` with your group code.
-   - In the Supabase dashboard, open SQL Editor, paste the whole file and run it.
-   - Then paste and run `supabase/events.sql` the same way.
-3. **Connect the site.**
-   - In Supabase, go to Project Settings > API.
-   - Copy the Project URL and the `anon` public key into `config.js`.
-4. **Push** this repo to GitHub.
-5. **Turn on GitHub Pages.**
-   - In the repo, go to Settings > Pages.
-   - Set it to Deploy from branch, `main`, folder `/ (root)`.
-   - The site will be at `https://angelic-coder19.github.io/afrotech_whereareyou/`.
+## What you can do
 
-To change the group code later, run this in the SQL Editor:
+- **Guide.** Official agenda by day (time, room, floor, track, ticket level, speakers), side events for the week, a free food and drinks filter, recruiters (company, name, booth, post link), and companies. Search covers sessions, events, and companies. Star anything into **My schedule** on this phone. Overlapping stars are flagged.
+- **Now / Next.** What is on at the current Chicago time, and the next official start. Add `?now=2026-11-04T10:30` to preview a moment during the week.
+- **Map.** Level 1 exhibit halls and Grand Lobby, Level 2 balconies, Level 3 ballrooms and meeting rooms. Solid shapes are rooms on the GRB plan. Dashed shapes are AfroTech names whose spot is approximate. Booth numbers are listed, not plotted.
+- **Crew.** Share a link or code, the other person accepts, then you can see each other’s check-in. Each person sets their own level and room or booth. Live location is opt-in, only while the page is open, and stops with one button. **Call** and **Text** use `tel:` and `sms:`.
+- **Friends, Schedule, Me.** The original closed group. Everyone who knows the group code can see check-ins. Phone numbers are not part of that: they show only for people who paired, plus any numbers in your private `config.local.js`.
+
+## Phone numbers stay out of git
+
+The repo is public. Do not commit anyone’s number.
+
+1. Each person types their own number on **Crew** after they sign in. It is stored in Supabase and returned only to people they have paired with.
+2. Optional: copy `config.crew.example.js` to `config.local.js` and fill in numbers on your own machine. `config.local.js` is gitignored. The app loads it when it is present and shows those **Call** / **Text** buttons only on that device. They are not uploaded.
+3. On the roster, Timeless is **David**. Put his number on `Timeless` or `David` in the private file.
+4. If you deploy `config.local.js` to a public host, anyone can download it. Use it on your own computer, or only on a private deploy.
+
+The example file lists names and empty strings. That is the only phone file that belongs in git.
+
+## Setup
+
+1. Create a free project at https://supabase.com.
+2. Open `supabase/schema.sql`, replace `CHANGE-ME` with your group code, and run the whole file in the Supabase SQL editor.
+3. Run `supabase/events.sql` the same way. This is the agreed-list filter (Student or Premiere, Mon Nov 2 through Thu Nov 5 12:00 PM).
+4. Run `supabase/crew.sql` the same way. This adds pairing, phone numbers, floor check-ins, and meet pins. The guide and the old tracker still load if you skip it; Crew will say the SQL is missing.
+5. In Supabase, open Project Settings → API. Copy the project URL and the publishable (anon) key into `config.js`. Leave `SUPABASE_URL` empty to use the local stand-in from `npm run dev`.
+6. Optionally copy `config.crew.example.js` to `config.local.js` and fill in numbers for your own device.
+7. Push to GitHub and turn on Pages: Settings → Pages → Deploy from branch `main`, folder `/ (root)`.
+
+To change the group code later:
+
 ```sql
 update settings set code_hash = crypt('NEW-CODE', gen_salt('bf')) where id = 1;
 ```
 
-## How it works
-- **Data access:** every read and write goes through Postgres functions in `schema.sql`. Tables have no direct access. Write functions take your session token and never a person, so you can only change your own status and attendance.
-- **Allowed events:** the `events` table only accepts Student or Premiere events between Mon Nov 2 and Thu Nov 5 12:00 PM.
-- **Sync:** the app checks for updates every 20 seconds while it is open. Changes made offline wait in a queue and are sent once the connection comes back. The schedule, the map and the last known state are all cached, so the app still opens offline.
-- **Live location:** it is only on while you switch it on and the page is open. The app sends "At GRB" or "Away from GRB". It never stores coordinates.
-- **Stale status:** a Manual status counts as stale after 45 minutes and a Live one after 5 minutes without an update. Tap "Still here" to refresh yours.
+No secret belongs in the repo. The publishable key is the public anon key Supabase expects in the browser. Service-role keys do not go in `config.js`.
 
-## Schedule data
-- `data/schedule.json` and `supabase/events.sql` were generated from https://afrotechconference.com/schedule on Oct 31, 2026 by `scripts/extract-schedule.mjs`.
-- `SKIPPED.md` lists the events that were left out and why.
-- To refresh the data:
-  1. Save the schedule page HTML.
-  2. Run `node scripts/extract-schedule.mjs page.html`.
-  3. Re-run `events.sql`.
-  4. Change `CACHE` in `sw.js` so phones pick up the new files.
+## How the data is kept
 
-## Map
-The map is a schematic based on the ExpoFP GRB floor plan. It is not to scale and positions are approximate. Schedule rooms that are not on that plan, such as the Expo Hall pavilions, the lounges and offsite venues, are under "Not on plan" with no position.
+The site reads static JSON, so the guide works without calling an API on each visit.
+
+| File | What it is |
+| --- | --- |
+| `data/sessions-full.json` | 256 official sessions from [afrotechconference.com/schedule](https://afrotechconference.com/schedule), pulled Oct 31, 2026. Track, ticket level, room, and speakers come from the session cards. |
+| `data/partner-events.json` | 127 partner and community events, Nov 1–7, from the Afrotech.guide list. |
+| `data/freefood.json` | Free food and drinks list from [afrotech.guide/freefood?day=all](https://afrotech.guide/freefood?day=all) (`/data/freefood-events.json`). |
+| `data/recruiters.json`, `data/companies.json`, `data/booths.json` | Recruiter posts and company booths. Booth numbers are what those posts said. |
+| `data/guide-meta.json` | Counts and source links. |
+| `data/schedule.json` | The smaller Student/Premiere list used by the group’s agreed schedule. `SKIPPED.md` says what that filter left out. |
+| `data/rooms.json` | Rooms, levels, and whether each placement is verified or approximate. |
+
+The community tracker sheet `1PLDLOdFCuwDAy4fe5y09hb4KgYlX3bsgX60U2z2KE_0` was exported as CSV. Its 123 event rows were already in the 127-event list, so nothing extra was added. Afrotech.guide’s read-only API is documented at https://afrotech.guide/openapi.json (v1.4.0). The public API’s session search returned the guide’s shorter tracked set, not the full 256, so the official schedule page is the agenda source.
+
+Refresh after you save a new schedule page:
+
+```bash
+npm run build:guide -- --schedule page.html \
+  --events events.json --companies companies.json \
+  --recruiters recruiter_posts.json --food freefood-events.json \
+  --sheet tracker.csv
+```
+
+`--live` refetches the official schedule, the free-food file, and guide events when you do not pass those files. Then bump `CACHE` in `sw.js` so phones pick up the new files.
+
+## Map: what is verified
+
+Sources: [GRB floor plans](https://www.grbhouston.com/planners/floor-plans/) and [dimensions](https://www.grbhouston.com/planners/dimensions-capacities/), plus the agenda when it names a floor. Every box is a schematic. Nothing is to scale.
+
+| Place | Level | Confidence |
+| --- | --- | --- |
+| Exhibit Halls A–E, including Hall E (Main Stage) and Halls C and D (Product & Innovation Stage) | 1 | Verified. The agenda says 1st floor, and these halls are Level 1 on the GRB plan. The stage spot inside the hall is not marked, so the box is the hall. |
+| Grand Lobby (registration) | 1 | Verified name and level. The plan labels GRAND LOBBY beside the concourse and entrances. The box is not a measured footprint. |
+| Expo Hall, The Yard, Book Nook, Authors / Founders / Smart Cities / HealthStack pavilions | 1 | Approximate. These are AfroTech names. They are not on the GRB plan. They are drawn dashed on Level 1 because the expo uses the exhibit halls. The spot inside the halls is not known. |
+| Rusk, Walker, McKinney, Avenida, Lamar, Polk balconies | 2 | Verified. GRB lists Avenida as balcony C South and McKinney as C North. Walker is the balcony lettered B. The agenda name “Balconies C - Avenida Balcony” matches Avenida. |
+| Grand Ballroom A, B, and C; Meeting Rooms 310, 320, and 350 section D; Halls A3 and B3 | 3 | Verified that they are on Level 3. Drawn in groups, not as a measured layout. Room 350D is the Axon recruiting room from their posts. |
+| Coca-Cola Lounge, Executive Lounge, Insider Lounge | not set | Unknown. Named on the agenda, not on the GRB plan. |
+| Discovery Green, Marriott HealthStack rooms, The Grove, Blavity, “Private”, partner-event placeholders | not set | Not GRB rooms, or the floor was not published. |
+| Booth numbers | 1 | Approximate. A number from a post, with no coordinate. |
+
+Halls are drawn A to E in plan order. That is not a claim about north.
+
+## Location, honestly
+
+- GPS only answers “At GRB” or “Away from GRB” (about 450 m from the building). Coordinates are not stored.
+- The floor is whatever that person last confirmed: Level 1, 2, or 3, plus a room or booth such as “Level 3, Meeting Room 320” or “Booth 812”.
+- Altitude from the phone, if the device provides it, is shown as a hint. It is not turned into a floor. Many phones send nothing indoors.
+- Live sharing runs only while the page is open and the switch is on. **Stop sharing location** turns it off.
+- A manual check-in is marked stale after 45 minutes, a live one after 5 minutes. **Still here** refreshes yours.
+- **Meet me here** drops a pin on the room you picked. Friends see it on that floor until you clear it or move.
+- The app polls every 20 seconds. Offline edits wait in a queue. The guide JSON is cached by the service worker.
+
+Check-ins for the group are visible to everyone who signed in with the group code, same as before. Pairing is the extra step that reveals phone numbers.
 
 ## Local testing
-```
+
+```bash
 npm install
-npm test          # server rules and schedule filter checks
-npm run dev       # site + local stand-in backend at http://localhost:8080, group code "test"
+npm test          # schedule filter, guide files, and crew rules
+npm run dev       # site + local stand-in at http://localhost:8080, group code "test"
 ```
-Add `?now=2026-11-03T10:00` to the URL to see the app at a chosen time.
+
+Sign in with a roster name and group code `test`. Open two browsers, create a pair link in one, and accept it in the other. Put `?now=2026-11-04T10:30` on the URL to see Now / Next during the conference.
+
+## Deploy
+
+GitHub Pages serves this folder as a static site. Run the three SQL files on Supabase first, then set `config.js`. After a data change, update `CACHE` in `sw.js` and push. Phones keep the previous cache until that name changes.

@@ -1,6 +1,7 @@
 // Checks the server rules and the schedule filter against an in-memory Postgres.
 // Usage: npm test
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync, statSync } from 'node:fs';
+import { join } from 'node:path';
 import assert from 'node:assert/strict';
 import { PGlite } from '@electric-sql/pglite';
 import { pgcrypto } from '@electric-sql/pglite/contrib/pgcrypto';
@@ -13,6 +14,7 @@ await db.exec(`create role anon; create role authenticated;
   alter default privileges in schema public grant all on functions to anon, authenticated;`);
 await db.exec(readFileSync('supabase/schema.sql', 'utf8').replace("'CHANGE-ME'", "'test'"));
 await db.exec(readFileSync('supabase/events.sql', 'utf8'));
+await db.exec(readFileSync('supabase/crew.sql', 'utf8'));
 const call = async (fn, args) => {
   const keys = Object.keys(args);
   const r = await db.query(`select ${fn}(${keys.map((k, i) => `${k} => $${i + 1}`).join(', ')}) as r`, Object.values(args));
@@ -33,6 +35,65 @@ ok(`all ${schedule.length} events are Student or Premiere, Mon Nov 2 to Thu Nov 
 const rooms = JSON.parse(readFileSync('data/rooms.json', 'utf8'));
 for (const e of schedule) assert.ok(rooms.some(r => r.label === e.room), `room not mapped: ${e.room}`);
 ok('every event room is on the map list');
+
+const sessionsFull = JSON.parse(readFileSync('data/sessions-full.json', 'utf8'));
+assert.equal(sessionsFull.length, 256);
+const roomIds = new Set(rooms.map(r => r.id));
+for (const s of sessionsFull) {
+  assert.ok(roomIds.has(s.roomId), `session room not mapped: ${s.room}`);
+  assert.ok(s.day >= '2026-11-02' && s.day <= '2026-11-06', s.title);
+  assert.ok(Date.parse(s.end) > Date.parse(s.start), s.title);
+  for (const f of ['title', 'start', 'end', 'room', 'track']) assert.ok(s[f] !== undefined, `missing ${f}`);
+}
+assert.ok(sessionsFull.some(s => s.speakers.length), 'expected speakers on the official cards');
+assert.ok(sessionsFull.some(s => s.day === '2026-11-06'), 'expected a Friday session');
+ok(`all ${sessionsFull.length} official sessions have a mapped room`);
+
+assert.equal(rooms.find(r => r.id === 'hall-e').level, '1');
+assert.equal(rooms.find(r => r.id === 'hall-e').certainty, 'verified');
+assert.equal(rooms.find(r => r.id === 'grand-lobby').level, '1');
+assert.equal(rooms.find(r => r.id === 'balcony-c').level, '2');
+assert.equal(rooms.find(r => r.id === 'balcony-c').certainty, 'verified');
+assert.equal(rooms.find(r => r.id === 'mckinney').level, '2');
+assert.equal(rooms.find(r => r.id === 'ballroom-a').level, '3');
+assert.equal(rooms.find(r => r.id === 'room-310').level, '3');
+assert.equal(rooms.find(r => r.id === 'room-320').level, '3');
+assert.equal(rooms.find(r => r.id === 'room-350d').level, '3');
+assert.equal(rooms.find(r => r.id === 'room-350d').certainty, 'verified');
+assert.equal(rooms.find(r => r.id === 'expo-yard').certainty, 'approximate');
+assert.equal(rooms.find(r => r.id === 'expo-book').level, '1');
+assert.equal(rooms.find(r => r.id === 'coca-cola').certainty, 'unknown');
+ok('floor tags match the GRB plan, and expo names stay approximate');
+
+const partner = JSON.parse(readFileSync('data/partner-events.json', 'utf8'));
+const days = new Set(partner.map(e => e.day));
+assert.ok(days.has('2026-11-01') && days.has('2026-11-07'));
+assert.ok(partner.length >= 120);
+const food = JSON.parse(readFileSync('data/freefood.json', 'utf8'));
+assert.ok(food.length >= 20);
+assert.ok(food.some(f => (f.offerings || []).some(o => o.certainty === 'complimentary' || o.certainty === 'included')));
+const rec = JSON.parse(readFileSync('data/recruiters.json', 'utf8'));
+assert.ok(rec.length >= 20 && rec.every(r => r.person && r.company && r.link));
+const booths = JSON.parse(readFileSync('data/booths.json', 'utf8'));
+assert.ok(booths.length >= 8 && booths.every(b => b.certainty === 'approximate' && b.level === '1'));
+ok(`guide files: ${partner.length} side events, ${food.length} food listings, ${rec.length} recruiter posts, ${booths.length} booths`);
+
+function walk(dir, hit) {
+  for (const name of readdirSync(dir)) {
+    if (name === 'node_modules' || name === '.git' || name === '_ui-check.mjs') continue;
+    const p = join(dir, name);
+    if (statSync(p).isDirectory()) walk(p, hit);
+    else if (/\.(js|mjs|json|md|sql|html|css)$/.test(name) && !p.endsWith('scripts/test.mjs')) hit.push(p);
+  }
+}
+const files = [];
+walk('.', files);
+for (const p of files) {
+  const text = readFileSync(p, 'utf8');
+  assert.ok(!/\+1\d{10}/.test(text), `phone-like number in ${p}`);
+  assert.ok(!/\b\d{3}-\d{3}-\d{4}\b/.test(text), `phone-like number in ${p}`);
+}
+ok('no phone numbers are committed outside the test file');
 
 // Server refuses events outside the filter
 await rejects(db.query(`insert into events values ('x','Late','2026-11-05 11:30-06','2026-11-05 12:30-06','R',array['Student'])`), /check/);
@@ -104,5 +165,53 @@ const running = agreed.filter(e => isRunning(e, t));
 assert.deepEqual(running.map(e => e.id), [overlap.id, other.id]);
 assert.equal(agreed.filter(e => isRunning(e, Date.parse(overlap.end))).some(e => e.id === overlap.id), false);
 ok(`Right now shows both overlapping events (${overlap.title} / ${other.title}) and drops one at its end time`);
+
+const FAKE = '+15555550100';
+await call('set_phone', { p_token: david.token, p_phone: FAKE });
+let hidden = await call('get_state', { p_token: angel.token });
+assert.equal(hidden.people.find(p => p.id === david.person_id).phone, null);
+assert.equal(hidden.people.find(p => p.id === angel.person_id).phone, null);
+let mine = await call('get_state', { p_token: david.token });
+assert.equal(mine.people.find(p => p.id === david.person_id).phone, FAKE);
+ok('a phone is visible to its owner and hidden from everyone else');
+
+await rejects(call('set_phone', { p_token: david.token, p_phone: 'call me maybe' }), /bad phone/);
+ok('a phone with letters is rejected');
+
+const code = await call('create_pair_code', { p_token: david.token });
+await rejects(call('accept_pair', { p_token: david.token, p_code: code.code }), /own code/);
+const accepted = await call('accept_pair', { p_token: angel.token, p_code: code.code });
+assert.equal(accepted.paired_with, 'David');
+let seen = await call('get_state', { p_token: angel.token });
+assert.equal(seen.people.find(p => p.id === david.person_id).phone, FAKE);
+assert.ok(seen.paired_ids.includes(david.person_id));
+const aziz = await call('sign_in', { p_name: 'Aziz', p_code: 'test' });
+const az = await call('get_state', { p_token: aziz.token });
+assert.equal(az.people.find(p => p.id === david.person_id).phone, null);
+ok('accepting a pair code shares the number, and a third person still cannot see it');
+
+await call('set_checkin', {
+  p_token: david.token, p_room: 'room-320', p_mode: 'manual', p_note: null,
+  p_level: '3', p_label: 'Room 320', p_alt: 12.4, p_meet: true, p_client_ts: new Date().toISOString()
+});
+seen = await call('get_state', { p_token: angel.token });
+const ds = seen.status.find(s => s.person_id === david.person_id);
+assert.equal(ds.room_id, 'room-320');
+assert.equal(ds.level, '3');
+assert.equal(ds.place_label, 'Room 320');
+assert.equal(ds.meet_pin, true);
+assert.equal(Number(ds.altitude_m), 12.4);
+ok('a check-in stores the confirmed level, label, altitude hint, and meet pin');
+
+await call('unpair', { p_token: angel.token, p_other: david.person_id });
+seen = await call('get_state', { p_token: angel.token });
+assert.equal(seen.people.find(p => p.id === david.person_id).phone, null);
+ok('unpair hides the number again');
+
+await db.exec('set role anon');
+await rejects(db.query('select * from pairs'), /permission denied/);
+await rejects(db.query('select phone from people'), /permission denied/);
+await db.exec('reset role');
+ok('anon cannot read pair rows or phone numbers directly');
 
 console.log(`\nall ${n} checks passed`);

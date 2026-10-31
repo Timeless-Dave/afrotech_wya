@@ -1,6 +1,8 @@
 // Keeps the app, schedule and map data available offline.
-const CACHE = 'wa-v2';
-const FILES = ['./', 'index.html', 'app.css', 'app.js', 'config.js', 'data/schedule.json', 'data/rooms.json'];
+const CACHE = 'wa-v3';
+const FILES = ['./', 'index.html', 'app.css', 'app.js', 'config.js', 'manifest.webmanifest',
+  'data/schedule.json', 'data/rooms.json', 'data/sessions-full.json', 'data/partner-events.json',
+  'data/freefood.json', 'data/recruiters.json', 'data/companies.json', 'data/booths.json', 'data/guide-meta.json'];
 
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(FILES)).then(() => self.skipWaiting()));
@@ -16,6 +18,7 @@ self.addEventListener('activate', e => {
 self.addEventListener('fetch', e => {
   const url = new URL(e.request.url);
   if (e.request.method !== 'GET' || url.origin !== location.origin) return;
+  if (url.pathname.endsWith('config.local.js')) return;
   const key = e.request.mode === 'navigate' ? 'index.html' : e.request;
   e.respondWith(caches.open(CACHE).then(async c => {
     const hit = await c.match(key, { ignoreSearch: true });
