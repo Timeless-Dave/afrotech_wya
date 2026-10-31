@@ -52,13 +52,13 @@ async function api(fn, args) {
   const timer = setTimeout(() => ctrl.abort(), 12000);
   let res;
   try {
-    res = await fetch(`${CONFIG.SUPABASE_URL}/rest/v1/rpc/${fn}`, {
+    const base = CONFIG.SUPABASE_URL.replace(/\/rest\/v1\/?$/, '').replace(/\/$/, '');
+    const key = CONFIG.SUPABASE_ANON_KEY;
+    const headers = { 'Content-Type': 'application/json', apikey: key };
+    if (key.startsWith('eyJ')) headers.Authorization = `Bearer ${key}`; // legacy anon key is a JWT; new publishable keys are not
+    res = await fetch(`${base}/rest/v1/rpc/${fn}`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        apikey: CONFIG.SUPABASE_ANON_KEY,
-        Authorization: `Bearer ${CONFIG.SUPABASE_ANON_KEY}`
-      },
+      headers,
       body: JSON.stringify(args),
       signal: ctrl.signal
     });

@@ -1,5 +1,5 @@
 // Keeps the app, schedule and map data available offline.
-const CACHE = 'wa-v1';
+const CACHE = 'wa-v2';
 const FILES = ['./', 'index.html', 'app.css', 'app.js', 'config.js', 'data/schedule.json', 'data/rooms.json'];
 
 self.addEventListener('install', e => {
