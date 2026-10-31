@@ -1,5 +1,5 @@
 // Keeps the app, schedule and map data available offline.
-const CACHE = 'wa-v6';
+const CACHE = 'wa-v7';
 const FILES = ['./', 'index.html', 'app.css', 'app.js', 'config.js', 'manifest.webmanifest',
   'assets/icon.svg', 'assets/icon-32.png', 'assets/icon-192.png', 'assets/icon-512.png', 'assets/apple-touch-icon.png',
   'assets/hero-640.webp', 'assets/hero-1280.webp', 'assets/hero-1920.webp', 'assets/og.jpg',
@@ -33,5 +33,32 @@ self.addEventListener('fetch', e => {
     if (!hit) return fresh;
     const slow = new Promise(res => setTimeout(() => res(hit), NET_WAIT_MS));
     return Promise.race([fresh.catch(() => hit), slow]);
+  }));
+});
+
+self.addEventListener('push', e => {
+  let payload = { title: 'Where Are You', body: 'Someone updated their check-in' };
+  try {
+    if (e.data) payload = { ...payload, ...e.data.json() };
+  } catch {}
+  e.waitUntil(self.registration.showNotification(payload.title, {
+    body: payload.body,
+    icon: 'assets/icon-192.png',
+    badge: 'assets/icon-192.png',
+    data: { url: './#friends' }
+  }));
+});
+
+self.addEventListener('notificationclick', e => {
+  e.notification.close();
+  const url = e.notification.data?.url || './#friends';
+  e.waitUntil(clients.matchAll({ type: 'window', includeUncontrolled: true }).then(list => {
+    for (const c of list) {
+      if ('focus' in c) {
+        c.navigate(url);
+        return c.focus();
+      }
+    }
+    if (clients.openWindow) return clients.openWindow(url);
   }));
 });

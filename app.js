@@ -16,6 +16,7 @@ const NO_GROUP_ROOMS = ['elsewhere-grb', 'outside-grb'];
 const $view = document.getElementById('view');
 const $sync = document.getElementById('sync');
 const $tabs = document.getElementById('tabs');
+const $install = document.getElementById('install');
 
 function load(key, fallback) {
   try { const v = localStorage.getItem(key); return v ? JSON.parse(v) : fallback; } catch { return fallback; }
@@ -44,6 +45,96 @@ let ui = {
   studentOnly: false, foodMode: 'all', eventsFood: false, boothsOnly: true, showAll: false,
   phoneDraft: null, code: '', signName: ''
 };
+let notifyOn = load('wa_notify', true);
+let deferredInstall = null;
+
+(function bootQuery() {
+  const c = new URLSearchParams(location.search).get('code');
+  if (c) ui.code = c;
+})();
+
+function clientId() {
+  let c = load('wa_client', null);
+  if (!c?.id) {
+    c = { id: typeof crypto?.randomUUID === 'function' ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2, 10)}` };
+    save('wa_client', c);
+  }
+  return c.id;
+}
+function isStandalone() {
+  return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+}
+function isIosInstall() {
+  return /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+}
+async function showFriendNotification(title, body, tag) {
+  if (!notifyOn || !('Notification' in window) || Notification.permission !== 'granted') return;
+  const opts = { body, icon: 'assets/icon-192.png', badge: 'assets/icon-192.png', tag, data: { url: './#friends' } };
+  try {
+    const reg = await navigator.serviceWorker.ready;
+    await reg.showNotification(title, opts);
+  } catch {
+    try { new Notification(title, opts); } catch {}
+  }
+}
+function pingNotify(oldData, newData) {
+  if (!session || !notifyOn || Notification.permission !== 'granted' || !newData?.people) return;
+  const me = session.person_id;
+  const onFriends = (location.hash || '').includes('friends');
+  for (const p of newData.people) {
+    if (p.id === me) continue;
+    const ns = newData.status.find(s => s.person_id === p.id);
+    const os = oldData?.status?.find(s => s.person_id === p.id);
+    if (!ns || isStale(ns)) continue;
+    if (os && os.room_id === ns.room_id && os.updated_at === ns.updated_at && os.place_label === ns.place_label) continue;
+    if (document.visibilityState === 'visible' && onFriends) continue;
+    showFriendNotification(`${p.name} updated`, placeText(ns), `friend-${p.id}`);
+  }
+}
+async function askNotify() {
+  if (!('Notification' in window)) { ui.msg = 'This browser does not support notifications.'; return false; }
+  if (Notification.permission === 'granted') { notifyOn = true; save('wa_notify', true); return true; }
+  if (Notification.permission === 'denied') { ui.msg = 'Notifications are blocked in browser settings.'; return false; }
+  const p = await Notification.requestPermission();
+  notifyOn = p === 'granted';
+  save('wa_notify', notifyOn);
+  if (!notifyOn) ui.msg = 'Notifications stay off until you allow them.';
+  return notifyOn;
+}
+async function installPwa() {
+  if (isIosInstall()) {
+    ui.note = 'On iPhone: tap Share, then Add to Home Screen.';
+    render();
+    return;
+  }
+  if (!deferredInstall) {
+    ui.note = 'Install is not available here yet. Try Chrome, Edge, or Android Chrome.';
+    render();
+    return;
+  }
+  deferredInstall.prompt();
+  await deferredInstall.userChoice;
+  deferredInstall = null;
+  updateInstallBar();
+  render();
+}
+function updateInstallBar() {
+  if (!$install) return;
+  if (isStandalone()) { $install.hidden = true; return; }
+  if (load('wa_install_dismiss', false) && !deferredInstall) { $install.hidden = true; return; }
+  if (deferredInstall) {
+    $install.hidden = false;
+    $install.innerHTML = `<p>Install for full-screen and faster check-ins.</p><div class="actions"><button type="button" class="primary" data-act="install-pwa">Add to Home Screen</button><button type="button" data-act="dismiss-install">Not now</button></div>`;
+    return;
+  }
+  if (isIosInstall() && session) {
+    $install.hidden = false;
+    $install.innerHTML = `<p>iPhone: Share → Add to Home Screen.</p><div class="actions"><button type="button" data-act="dismiss-install">Got it</button></div>`;
+    return;
+  }
+  $install.hidden = true;
+}
+
 let live = { watchId: null, timer: null, note: null, altitude: null, error: '' };
 
 const nowOverride = (() => {
@@ -192,12 +283,14 @@ async function sync() {
       outbox.shift();
       save('wa_outbox', outbox);
     }
+    const oldData = cache?.data;
     const data = await api('get_state', { p_token: session.token });
+    pingNotify(oldData, data);
     cache = { data, syncedAt: Date.now() };
     save('wa_state', cache);
     net.ok = true; net.error = '';
   } catch (e) {
-    if (e.auth) { signOut(true); ui.msg = 'Please sign in again.'; }
+    if (e.auth) { signOut(true); ui.msg = 'Session expired. Join again.'; }
     net.ok = false; net.error = e.message;
   } finally {
     syncing = false;
@@ -229,7 +322,12 @@ function agreedEvents() {
 }
 const goingTo = id => cache ? cache.data.attendance.filter(a => a.event_id === id).map(a => a.person_id) : [];
 const isGoing = (pid, eid) => cache?.data.attendance.some(a => a.person_id === pid && a.event_id === eid);
-const personName = id => cache?.data.people.find(p => p.id === id)?.name || '?';
+const personName = id => {
+  const p = cache?.data?.people?.find(x => x.id === id);
+  if (!p) return '?';
+  const dup = cache.data.people.filter(x => x.name === p.name).length > 1;
+  return dup ? `${p.name} (#${p.id})` : p.name;
+};
 const statusOf = pid => cache?.data.status.find(s => s.person_id === pid);
 function isStale(s) {
   if (!s) return true;
@@ -329,23 +427,45 @@ function toggleStar(key) {
 }
 
 function viewSignIn() {
-  const sel = ui.signName || '';
-  const wait = pendingPair() ? '<p class="note">A pair link is waiting. Sign in, then accept it on Crew.</p>' : '';
-  return `<h1>Sign in</h1>
-    <p class="muted">Pick your name. The guide and the map work before you sign in. On the roster, Timeless is David.</p>
+  const name = ui.signName || load('wa_last_name', '') || '';
+  const wait = pendingPair() ? '<p class="note">A pair link is waiting. Join, then accept it on Crew.</p>' : '';
+  return `<h1>Join</h1>
+    <p class="muted">Type the name your friends know. It stays on this phone until you log out. Anyone with the link can join — add a last initial if your name is common.</p>
     ${wait}
-    <div class="grid">${ROSTER.map(n => `<button data-act="pick" data-name="${esc(n)}" class="${n === sel ? 'on' : ''}">${esc(n)}</button>`).join('')}</div>
-    <h2>Group code</h2>
     <form data-act="signin">
-      <input id="code" type="password" autocomplete="current-password" required value="${esc(ui.code || '')}">
-      <p><button class="primary" style="width:100%" ${sel ? '' : 'disabled'}>Sign in${sel ? ' as ' + esc(sel) : ''}</button></p>
-    </form>`;
+      <label class="search">Your name
+        <input id="name" required autocomplete="nickname" maxlength="40" value="${esc(name)}" placeholder="First name or nickname">
+      </label>
+      <label class="search">Group code
+        <input id="code" type="password" autocomplete="current-password" required value="${esc(ui.code || '')}" placeholder="From your group chat">
+      </label>
+      <p><button class="primary" style="width:100%">Continue</button></p>
+    </form>
+    <p class="muted">School crew quick pick (optional):</p>
+    <div class="grid">${ROSTER.map(n => `<button type="button" data-act="pick" data-name="${esc(n)}" class="${n === name ? 'on' : ''}">${esc(n)}</button>`).join('')}</div>`;
+}
+
+function onboardCard() {
+  if (load('wa_onboarded', false) || !session) return '';
+  return `<div class="card onboard">
+    <p><strong>Quick start</strong></p>
+    <ol>
+      <li><a href="#me">Me</a> or <a href="#map">Map</a> — pick floor + room, tap <strong>Still here</strong> when you move.</li>
+      <li><a href="#friends">Friends</a> — see everyone on the link (updates every ~12s here).</li>
+      <li><a href="#crew">Crew</a> — pair to call/text; turn on alerts on <a href="#me">Me</a>.</li>
+    </ol>
+    <button type="button" data-act="dismiss-onboard">Got it</button>
+  </div>`;
 }
 
 function viewFriends() {
   if (!cache) return '<h1>Friends</h1><p>No data yet. Connect once to load.</p>';
+  const same = cache.data.same_names || [];
+  const dupMe = same.includes(session.name);
+  const warn = dupMe ? `<p class="conflict">More than one person is using “${esc(session.name)}”. You show as ${esc(personName(session.person_id))}. Re-join with a clearer name if friends get confused.</p>` : '';
   const people = [...cache.data.people].sort((a, b) => (b.id === session.person_id) - (a.id === session.person_id));
-  return `<h1>Where are my friends?</h1>
+  return `${onboardCard()}<h1>Where are my friends?</h1>
+    ${warn}
     <p class="muted">Call and text show up when someone you paired with saved a number, or when this device has config.local.js.</p>` + people.map(p => {
     const s = statusOf(p.id), stale = isStale(s);
     const evs = currentEventsOf(p.id);
@@ -355,7 +475,7 @@ function viewFriends() {
     }
     evs.forEach(e => goingTo(e.id).forEach(id => { if (id !== p.id) with_.add(id); }));
     return `<div class="row">
-      <div class="top"><span class="name">${esc(p.name)}${p.id === session.person_id ? ' (you)' : ''}</span><span>${badge(s)}</span></div>
+      <div class="top"><span class="name">${esc(personName(p.id))}${p.id === session.person_id ? ' (you)' : ''}</span><span>${badge(s)}</span></div>
       <p class="${stale ? 'stale-text' : ''}">${s ? esc(placeText(s)) : 'Not set'}${s?.mode === 'live' && s.live_note ? ` · ${esc(s.live_note)}` : ''}</p>
       ${evs.length ? `<p>In: ${evs.map(e => esc(e.title)).join('; ')}</p>` : ''}
       ${with_.size ? `<p>With: ${[...with_].map(personName).map(esc).join(', ')}</p>` : ''}
@@ -774,6 +894,7 @@ function viewMe() {
   const s = statusOf(me);
   const today = chicagoDay(now());
   const todays = agreedEvents().filter(e => e.day === today);
+  const notifyOk = typeof Notification !== 'undefined' && Notification.permission === 'granted';
   return `<h1>My status</h1>
     <p>${badge(s)} ${s ? `<span class="muted">Updated ${fmtWhen(Date.parse(s.updated_at))}</span>` : ''}</p>
     ${s ? `<p>${esc(placeText(s))}</p>` : ''}
@@ -789,8 +910,15 @@ function viewMe() {
     <h2>My events today</h2>
     ${todays.length ? todays.map(e => `<div class="row"><div>${esc(e.title)}</div><p class="muted">${eventLine(e)}</p>${goingButton(e)}</div>`).join('') : '<p>No agreed events today.</p>'}
     <p class="muted">Phone, pairing, and booth check-in are on <a href="#crew">Crew</a>.</p>
-    <h2>Signed in as ${esc(session.name)}${session.name === 'David' ? ' (Timeless)' : ''}</h2>
-    <button data-act="signout">Sign out</button>`;
+    <h2>App on your phone</h2>
+    <p class="muted">${isStandalone() ? 'Running installed.' : 'Add to Home Screen for full screen and quicker access.'}</p>
+    <p class="actions"><button type="button" data-act="install-pwa">Add to Home Screen</button></p>
+    <h2>Check-in alerts</h2>
+    <p class="muted">Ping when someone updates their location (best when the app is installed or in the background).</p>
+    <p class="actions"><button type="button" data-act="notify-toggle" class="${notifyOn && notifyOk ? 'on' : ''}">${notifyOn && notifyOk ? 'Alerts on' : 'Turn on alerts'}</button></p>
+    <h2>Joined as ${esc(session.name)}${session.name === 'David' ? ' (Timeless)' : ''}</h2>
+    <p class="muted">This device ID is stored with your session so duplicate names are easier to spot. Log out before handing your phone to someone else.</p>
+    <button type="button" data-act="signout">Log out</button>`;
 }
 
 const VIEWS = { guide: viewGuide, now: viewNow, map: viewMap, schedule: viewSchedule, crew: viewCrew, friends: viewFriends, me: viewMe, signin: viewSignIn };
@@ -823,6 +951,8 @@ function snapshotFields(active) {
   if (phone) ui.phoneDraft = phone.value;
   const code = document.getElementById('code');
   if (code) ui.code = code.value;
+  const name = document.getElementById('name');
+  if (name) ui.signName = name.value;
   ui._keep = null;
   ui._caret = null;
   if (active && active.id && active.matches && active.matches('input, textarea')) {
@@ -852,6 +982,7 @@ function render() {
       }
     }
   }
+  updateInstallBar();
 }
 
 function setStatus(roomId, mode) {
@@ -963,6 +1094,10 @@ document.addEventListener('click', e => {
   }
   else if (act === 'live') live.watchId !== null ? stopLive() : startLive();
   else if (act === 'signout') signOut(false);
+  else if (act === 'install-pwa') installPwa();
+  else if (act === 'dismiss-install') { save('wa_install_dismiss', true); updateInstallBar(); render(); }
+  else if (act === 'dismiss-onboard') { save('wa_onboarded', true); render(); }
+  else if (act === 'notify-toggle') { askNotify().then(() => render()); }
   else if (act === 'star') toggleStar(el.dataset.key);
   else if (act === 'seg') { ui.seg = el.dataset.seg; ui.showAll = false; render(); }
   else if (act === 'day') { ui.day = el.dataset.day; render(); }
@@ -1036,15 +1171,20 @@ document.addEventListener('submit', async e => {
   const act = e.target.dataset.act;
   if (act === 'search') return;
   if (act === 'signin') {
-    if (!ui.signName) return;
+    const nameEl = document.getElementById('name');
+    const name = (nameEl?.value || ui.signName || '').trim();
     const code = document.getElementById('code').value;
     ui.code = code;
+    ui.signName = name;
     ui.msg = '';
+    if (!name) { ui.msg = 'Enter your name.'; render(); return; }
     try {
-      const r = await api('sign_in', { p_name: ui.signName, p_code: code });
-      session = { token: r.token, person_id: r.person_id, name: ui.signName };
+      const r = await api('sign_in', { p_name: name, p_code: code, p_client_id: clientId() });
+      session = { token: r.token, person_id: r.person_id, name: r.name || name };
       save('wa_session', session);
+      save('wa_last_name', session.name);
       net.ok = true;
+      if (notifyOn) await askNotify();
       location.hash = pendingPair() ? '#crew' : '#friends';
       await sync();
     } catch (err) {
@@ -1123,6 +1263,16 @@ async function loadJson(path) {
   return r.json();
 }
 
+window.addEventListener('beforeinstallprompt', e => {
+  e.preventDefault();
+  deferredInstall = e;
+  updateInstallBar();
+});
+window.addEventListener('appinstalled', () => {
+  deferredInstall = null;
+  updateInstallBar();
+});
+
 (async () => {
   await loadLocalCrew();
   try { [schedule, rooms] = await Promise.all([loadJson('data/schedule.json'), loadJson('data/rooms.json')]); }
@@ -1143,6 +1293,7 @@ async function loadJson(path) {
   ui.eventDay = pickDay([...new Set(partnerEvents.map(e => e.day).filter(Boolean))]);
   render();
   sync();
+  updateInstallBar();
   try { if (session && sessionStorage.getItem('wa_live')) startLive(); } catch {}
   if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
 })();

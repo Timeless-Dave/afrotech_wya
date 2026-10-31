@@ -83,7 +83,7 @@ await phone.waitForFunction(() => document.body.innerText.includes('Coca-Cola') 
 await shot(phone, 'mobile_map_off.png');
 
 await phone.goto(base + '#signin', { waitUntil: 'networkidle0' });
-await phone.click('button[data-name="Angel"]');
+await phone.type('#name', 'Angel');
 await phone.type('#code', 'test');
 await phone.click('form[data-act="signin"] button');
 await phone.waitForFunction(() => document.body.innerText.includes('Angel') && document.body.innerText.includes('Where are my friends'));
@@ -107,7 +107,7 @@ const david = await davidCtx.newPage();
 watch(david, 'david');
 await david.setViewport({ width: 390, height: 844, isMobile: true, hasTouch: true, deviceScaleFactor: 2 });
 await david.goto(base + '#signin', { waitUntil: 'networkidle0' });
-await david.click('button[data-name="David"]');
+await david.type('#name', 'David');
 await david.type('#code', 'test');
 await david.click('form[data-act="signin"] button');
 await david.waitForFunction(() => document.body.innerText.includes('Where are my friends'));

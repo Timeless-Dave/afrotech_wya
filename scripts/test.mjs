@@ -15,6 +15,7 @@ await db.exec(`create role anon; create role authenticated;
 await db.exec(readFileSync('supabase/schema.sql', 'utf8').replace("'CHANGE-ME'", "'test'"));
 await db.exec(readFileSync('supabase/events.sql', 'utf8'));
 await db.exec(readFileSync('supabase/crew.sql', 'utf8'));
+await db.exec(readFileSync('supabase/easy.sql', 'utf8'));
 const call = async (fn, args) => {
   const keys = Object.keys(args);
   const r = await db.query(`select ${fn}(${keys.map((k, i) => `${k} => $${i + 1}`).join(', ')}) as r`, Object.values(args));
@@ -107,11 +108,13 @@ await rejects(db.query(`insert into events values ('z','Fri','2026-11-06 09:00-0
 ok('database rejects events past Thu noon, on Friday, or without Student/Premiere');
 
 // Sign in
-await rejects(call('sign_in', { p_name: 'Angel', p_code: 'nope' }), /wrong code/);
-await rejects(call('sign_in', { p_name: 'Stranger', p_code: 'test' }), /not on roster/);
-const angel = await call('sign_in', { p_name: 'Angel', p_code: 'test' });
-const david = await call('sign_in', { p_name: 'David', p_code: 'test' });
-ok('sign in needs roster name and group code');
+await rejects(call('sign_in', { p_name: 'Angel', p_code: 'nope', p_client_id: 'dev-a' }), /wrong code/);
+await rejects(call('sign_in', { p_name: 'A', p_code: 'test', p_client_id: 'dev-b' }), /2–40/);
+const stranger = await call('sign_in', { p_name: 'Stranger Friend', p_code: 'test', p_client_id: 'dev-c' });
+assert.ok(stranger.token && stranger.person_id);
+const angel = await call('sign_in', { p_name: 'Angel', p_code: 'test', p_client_id: 'dev-angel' });
+const david = await call('sign_in', { p_name: 'David', p_code: 'test', p_client_id: 'dev-david' });
+ok('join accepts any name, group code, and device id');
 
 // Own status only
 const t0 = new Date(Date.now() - 60000).toISOString();
@@ -190,7 +193,7 @@ assert.equal(accepted.paired_with, 'David');
 let seen = await call('get_state', { p_token: angel.token });
 assert.equal(seen.people.find(p => p.id === david.person_id).phone, FAKE);
 assert.ok(seen.paired_ids.includes(david.person_id));
-const aziz = await call('sign_in', { p_name: 'Aziz', p_code: 'test' });
+const aziz = await call('sign_in', { p_name: 'Aziz', p_code: 'test', p_client_id: 'dev-aziz' });
 const az = await call('get_state', { p_token: aziz.token });
 assert.equal(az.people.find(p => p.id === david.person_id).phone, null);
 ok('accepting a pair code shares the number, and a third person still cannot see it');

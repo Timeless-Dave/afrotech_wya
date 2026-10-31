@@ -18,6 +18,7 @@ await db.exec(`create role anon; create role authenticated;
 await db.exec(readFileSync('supabase/schema.sql', 'utf8').replace("'CHANGE-ME'", "'test'"));
 await db.exec(readFileSync('supabase/events.sql', 'utf8'));
 await db.exec(readFileSync('supabase/crew.sql', 'utf8'));
+await db.exec(readFileSync('supabase/easy.sql', 'utf8'));
 
 const FNS = ['sign_in', 'sign_out', 'get_state', 'set_status', 'set_attendance', 'add_agreed',
   'set_phone', 'create_pair_code', 'accept_pair', 'unpair', 'set_checkin'];

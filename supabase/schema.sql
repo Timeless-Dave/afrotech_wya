@@ -5,7 +5,7 @@ create extension if not exists pgcrypto;
 
 create table if not exists people (
   id serial primary key,
-  name text not null unique
+  name text not null
 );
 
 create table if not exists settings (
@@ -16,6 +16,7 @@ create table if not exists settings (
 create table if not exists sessions (
   token uuid primary key default gen_random_uuid(),
   person_id int not null references people(id) on delete cascade,
+  client_id text,
   created_at timestamptz not null default now()
 );
 
@@ -71,10 +72,12 @@ do $$ begin
   end if;
 end $$;
 
-insert into people (name) values
-  ('Angel'), ('David'), ('Aziz'), ('Raphael'), ('Yannick'), ('Grace'),
-  ('Aldine'), ('Peter'), ('Nicholas'), ('Kudzi'), ('Kenny'), ('Ms. Yussif')
-on conflict (name) do nothing;
+insert into people (name)
+select x from unnest(array[
+  'Angel', 'David', 'Aziz', 'Raphael', 'Yannick', 'Grace',
+  'Aldine', 'Peter', 'Nicholas', 'Kudzi', 'Kenny', 'Ms. Yussif'
+]::text[]) as x
+where not exists (select 1 from people p where p.name = x);
 
 insert into settings (id, code_hash) values (1, crypt('CHANGE-ME', gen_salt('bf')))
 on conflict (id) do update set code_hash = excluded.code_hash;
@@ -89,18 +92,23 @@ begin
   return pid;
 end $$;
 
-create or replace function sign_in(p_name text, p_code text) returns json
+create or replace function sign_in(p_name text, p_code text, p_client_id text default null) returns json
 language plpgsql security definer set search_path = public, extensions as $$
-declare pid int; h text; t uuid;
+declare pid int; h text; t uuid; n text;
 begin
+  n := trim(p_name);
+  if char_length(n) < 2 or char_length(n) > 40 then
+    raise exception 'name must be 2–40 characters' using errcode = '22023';
+  end if;
   select code_hash into h from settings where id = 1;
   if h is null or crypt(p_code, h) <> h then
     raise exception 'wrong code' using errcode = '28P01';
   end if;
-  select id into pid from people where name = p_name;
-  if pid is null then raise exception 'not on roster' using errcode = '28000'; end if;
-  insert into sessions (person_id) values (pid) returning token into t;
-  return json_build_object('token', t, 'person_id', pid);
+  insert into people (name) values (n) returning id into pid;
+  insert into sessions (person_id, client_id)
+    values (pid, nullif(left(trim(coalesce(p_client_id, '')), 64), ''))
+    returning token into t;
+  return json_build_object('token', t, 'person_id', pid, 'name', n);
 end $$;
 
 create or replace function sign_out(p_token uuid) returns void
@@ -169,7 +177,7 @@ revoke execute on function _me(uuid) from public;
 do $$ begin
   if exists (select 1 from pg_roles where rolname = 'anon') then
     execute 'revoke execute on function _me(uuid) from anon, authenticated';
-    execute 'grant execute on function sign_in(text, text), sign_out(uuid), get_state(uuid),
+    execute 'grant execute on function sign_in(text, text, text), sign_out(uuid), get_state(uuid),
       set_status(uuid, text, text, text, timestamptz), set_attendance(uuid, text, boolean),
       add_agreed(uuid, text) to anon';
   end if;

@@ -78,7 +78,12 @@ begin
       select code from pair_codes
       where person_id = pid and expires_at > now()
       order by created_at desc limit 1
-    )
+    ),
+    'same_names', (
+      select coalesce(json_agg(name order by name), '[]'::json)
+      from (select name from people group by name having count(*) > 1) d
+    ),
+    'my_client_id', (select client_id from sessions where token = p_token)
   );
 end $$;
 

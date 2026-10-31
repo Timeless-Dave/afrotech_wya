@@ -10,7 +10,7 @@ Times are America/Chicago.
 - **Now / Next.** What is on at the current Chicago time, and the next official start. Add `?now=2026-11-04T10:30` to preview a moment during the week.
 - **Map.** Level 1 exhibit halls and Grand Lobby, Level 2 balconies, Level 3 ballrooms and meeting rooms. Solid shapes are rooms on the GRB plan. Dashed shapes are AfroTech names whose spot is approximate. Booth numbers are listed, not plotted.
 - **Crew.** Share a link or code, the other person accepts, then you can see each other’s check-in. Each person sets their own level and room or booth. Live location is opt-in, only while the page is open, and stops with one button. **Call** and **Text** use `tel:` and `sms:`.
-- **Friends, Schedule, Me.** The original closed group. Everyone who knows the group code can see check-ins. Phone numbers are not part of that: they show only for people who paired, plus any numbers in your private `config.local.js`.
+- **Friends, Schedule, Me.** Anyone with the link and group code can **Join** with their name (saved on the device until log out). A random device id is stored on the session so duplicate names show as `Name (#id)`. Check-in alerts optional. Phone numbers show only for paired people, plus any numbers in your private `config.local.js`.
 
 ## Phone numbers stay out of git
 
@@ -29,9 +29,10 @@ The example file lists names and empty strings. That is the only phone file that
 2. Open `supabase/schema.sql`, replace `CHANGE-ME` with your group code, and run the whole file in the Supabase SQL editor.
 3. Run `supabase/events.sql` the same way. This is the agreed-list filter (Student or Premiere, Mon Nov 2 through Thu Nov 5 12:00 PM).
 4. Run `supabase/crew.sql` the same way. This adds pairing, phone numbers, floor check-ins, and meet pins. The guide and the old tracker still load if you skip it; Crew will say the SQL is missing.
-5. In Supabase, open Project Settings → API. Copy the project URL and the publishable (anon) key into `config.js`. Leave `SUPABASE_URL` empty to use the local stand-in from `npm run dev`.
-6. Optionally copy `config.crew.example.js` to `config.local.js` and fill in numbers for your own device.
-7. Push to GitHub and turn on Pages: Settings → Pages → Deploy from branch `main`, folder `/ (root)`.
+5. Run `supabase/easy.sql` once. This enables **open join** (any display name), device ids on sessions, and duplicate-name hints in the app. Skip only if you already ran it.
+6. In Supabase, open Project Settings → API. Copy the project URL and the publishable (anon) key into `config.js`. Leave `SUPABASE_URL` empty to use the local stand-in from `npm run dev`.
+7. Optionally copy `config.crew.example.js` to `config.local.js` and fill in numbers for your own device.
+8. Push to GitHub and turn on Pages: Settings → Pages → Deploy from branch `main`, folder `/ (root)`.
 
 To change the group code later:
 
@@ -93,7 +94,7 @@ Halls are drawn A to E in plan order. That is not a claim about north.
 - Live sharing runs only while the page is open and the switch is on. **Stop sharing location** turns it off.
 - A manual check-in is marked stale after 45 minutes, a live one after 5 minutes. **Still here** refreshes yours.
 - **Meet me here** drops a pin on the room you picked. Friends see it on that floor until you clear it or move.
-- The app polls every 20 seconds on Guide and Schedule, and every **12 seconds** on **Friends**, **Crew**, and **Map** while the tab is open. Offline edits wait in a queue. The guide JSON and hero images are cached by the service worker (`wa-v6`).
+- The app polls every 20 seconds on Guide and Schedule, and every **12 seconds** on **Friends**, **Crew**, and **Map** while the tab is open. Offline edits wait in a queue. The guide JSON and hero images are cached by the service worker (`wa-v7`). Optional **check-in alerts** use the browser Notification API (works best with Add to Home Screen).
 
 Check-ins for the group are visible to everyone who signed in with the group code, same as before. Pairing is the extra step that reveals phone numbers.
 
@@ -113,12 +114,15 @@ Link previews (iMessage, Slack) use the absolute `og:image` in `index.html` (`ht
 
 ## School group: staying in sync
 
-1. **Same group code** — everyone on **Friends** sees the same check-ins.
-2. **Home screen** — Add to Home Screen on iPhone/Android so the app opens full screen.
-3. **Check in often** — **Me** or **Map**: pick level + room, tap **Still here** when you move, **Live** only while you are walking between halls (stops when you leave the page or tap stop).
-4. **Crew pairs** — Pair with classmates you call/text; save your number once on **Crew**.
-5. **Keep Friends or Crew open** — polling is faster there (12s). Background tabs still sync when you return.
-6. **Meet pin** — On **Map**, **Meet me here** so others see where to find you on that floor.
+Paste **`CREW_ONBOARDING.md`** into your group chat (link + code + 30-second ritual).
+
+1. **Same link and code** — share `https://timeless-dave.github.io/afrotech_wya/?code=YOURCODE` if you want the code pre-filled.
+2. **Join** — type your name once; it stays on the phone until **Log out** on **Me**.
+3. **Home screen** — tap **Add to Home Screen** (banner or **Me** tab). On iPhone: Share → Add to Home Screen.
+4. **Alerts** — **Me → Turn on alerts** when a friend updates their check-in (install the PWA for best results on iOS).
+5. **Check in often** — **Me** or **Map**: pick level + room, tap **Still here** when you move.
+6. **Crew pairs** — pair with classmates you call/text; save your number once on **Crew**.
+7. **Keep Friends or Crew open** — polling is faster there (12s).
 
 ## Local testing
 
@@ -129,7 +133,7 @@ npm test          # schedule filter, guide files, and crew rules
 npm run dev       # site + local stand-in at http://localhost:8080, group code "test"
 ```
 
-Sign in with a roster name and group code `test`. Open two browsers, create a pair link in one, and accept it in the other. Put `?now=2026-11-04T10:30` on the URL to see Now / Next during the conference.
+Sign in with any name and group code `test`. Open two browsers, create a pair link in one, and accept it in the other. Put `?now=2026-11-04T10:30` on the URL to see Now / Next during the conference.
 
 ## Deploy
 

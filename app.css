@@ -77,6 +77,36 @@ body {
 body.signed-in .site-hero { display: none; }
 body.signed-in .site-brand { padding-top: 8px; padding-bottom: 8px; }
 body.signed-in .site-logo { width: 36px; height: 36px; }
+.install-bar {
+  max-width: var(--content-wide);
+  margin: 0 auto;
+  padding: 10px 16px;
+  background: var(--text);
+  color: var(--accent-text);
+  font-size: 14px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  justify-content: space-between;
+}
+.install-bar[hidden] { display: none !important; }
+.install-bar p { margin: 0; flex: 1 1 200px; }
+.install-bar .actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.install-bar button {
+  min-height: 40px;
+  border-color: var(--accent-text);
+  background: transparent;
+  color: var(--accent-text);
+}
+.install-bar button.primary {
+  background: var(--accent-text);
+  color: var(--text);
+  border-color: var(--accent-text);
+}
+.onboard { background: var(--soft); }
+.onboard ol { margin: 8px 0; padding-left: 20px; }
+.onboard li { margin: 4px 0; }
 main {
   max-width: var(--content);
   margin: 0 auto;
