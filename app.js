@@ -804,6 +804,7 @@ function route() {
 }
 function setTabs() {
   const signed = !!session;
+  document.body.classList.toggle('signed-in', signed);
   const show = signed
     ? ['guide', 'now', 'map', 'schedule', 'crew', 'friends', 'me']
     : ['guide', 'now', 'map', 'signin'];

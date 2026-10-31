@@ -74,6 +74,9 @@ body {
   color: var(--muted);
   line-height: 1.3;
 }
+body.signed-in .site-hero { display: none; }
+body.signed-in .site-brand { padding-top: 8px; padding-bottom: 8px; }
+body.signed-in .site-logo { width: 36px; height: 36px; }
 main {
   max-width: var(--content);
   margin: 0 auto;
@@ -209,8 +212,12 @@ svg .pin { fill: var(--text); }
   main { padding-left: 20px; padding-right: 20px; }
 }
 @media (min-width: 768px) {
-  :root { --content: 720px; }
+  :root { --content: 720px; --hero-h: clamp(160px, 20vw, 260px); }
   .tabs a { padding-left: 16px; padding-right: 16px; font-size: 15px; }
+  body { padding-bottom: calc(80px + env(safe-area-inset-bottom)); }
+}
+@media (min-width: 768px) and (max-width: 899px) {
+  .tabs a { flex: 1 1 auto; min-width: 0; padding-left: 10px; padding-right: 10px; font-size: 13px; }
 }
 @media (min-width: 900px) {
   body { padding-bottom: 24px; }
