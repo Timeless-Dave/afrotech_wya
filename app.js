@@ -106,7 +106,11 @@ async function api(fn, args) {
     const err = new Error('offline'); err.network = true; throw err;
   } finally { clearTimeout(timer); }
   const text = await res.text();
-  const body = text ? JSON.parse(text) : null;
+  let body = null;
+  try { body = text ? JSON.parse(text) : null; } catch {
+    // Not a Supabase reply (wrong URL, or an old cached copy of the app). Keep queued changes.
+    const err = new Error('server'); err.network = true; err.setup = true; throw err;
+  }
   if (!res.ok) {
     const err = new Error(body?.message || `error ${res.status}`);
     err.auth = body?.code === '28000';
@@ -1042,7 +1046,8 @@ document.addEventListener('submit', async e => {
       location.hash = pendingPair() ? '#crew' : '#friends';
       await sync();
     } catch (err) {
-      ui.msg = err.network ? 'No connection. Sign in needs a connection.' : err.message === 'wrong code' ? 'Wrong group code.' : shortErr(err);
+      ui.msg = err.setup ? 'Cannot reach the group server. Close and reopen the page.' :
+        err.network ? 'No connection. Sign in needs a connection.' : err.message === 'wrong code' ? 'Wrong group code.' : shortErr(err);
       render();
     }
     return;
