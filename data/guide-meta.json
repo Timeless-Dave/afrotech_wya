@@ -1,0 +1,47 @@
+{
+  "generated": "2026-10-31",
+  "timezone": "America/Chicago",
+  "sessions": 256,
+  "events": 127,
+  "food": 24,
+  "recruiters": 24,
+  "companies": 109,
+  "booths": 10,
+  "unparsedSessions": 0,
+  "sheet": {
+    "rows": 123,
+    "added": 0
+  },
+  "sources": [
+    {
+      "name": "Official AfroTech 2026 schedule",
+      "url": "https://afrotechconference.com/schedule",
+      "note": "Session cards for Nov 2–6, including track, ticket level, room, and speakers. Pulled Oct 31, 2026."
+    },
+    {
+      "name": "Afrotech.guide",
+      "url": "https://afrotech.guide/api/v1",
+      "note": "Read-only API v1.4.0. Partner events and the free-food file. OpenAPI at https://afrotech.guide/openapi.json."
+    },
+    {
+      "name": "Free food and drinks",
+      "url": "https://afrotech.guide/freefood?day=all",
+      "note": "List from https://afrotech.guide/data/freefood-events.json. Offerings are quotes from listings, not a promise the food is still there."
+    },
+    {
+      "name": "Community tracker",
+      "url": "https://docs.google.com/spreadsheets/d/1PLDLOdFCuwDAy4fe5y09hb4KgYlX3bsgX60U2z2KE_0/edit",
+      "note": "Public sheet of community events. CSV export compared with the partner list."
+    },
+    {
+      "name": "Recruiter posts",
+      "url": "https://afrotech.guide",
+      "note": "LinkedIn, X, and company posts gathered Oct 30, 2026. Booth numbers are what the posts said."
+    },
+    {
+      "name": "GRB floor plans",
+      "url": "https://www.grbhouston.com/planners/floor-plans/",
+      "note": "Level 1 halls and Grand Lobby, Level 2 balconies, Level 3 ballrooms and meeting rooms. Dimensions: https://www.grbhouston.com/planners/dimensions-capacities/"
+    }
+  ]
+}

@@ -3,6 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "build:guide": "node scripts/build-guide.mjs",
     "dev": "node scripts/dev-server.mjs",
     "test": "node scripts/test.mjs"
   },
