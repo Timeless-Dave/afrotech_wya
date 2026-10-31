@@ -93,14 +93,38 @@ Halls are drawn A to E in plan order. That is not a claim about north.
 - Live sharing runs only while the page is open and the switch is on. **Stop sharing location** turns it off.
 - A manual check-in is marked stale after 45 minutes, a live one after 5 minutes. **Still here** refreshes yours.
 - **Meet me here** drops a pin on the room you picked. Friends see it on that floor until you clear it or move.
-- The app polls every 20 seconds. Offline edits wait in a queue. The guide JSON is cached by the service worker.
+- The app polls every 20 seconds on Guide and Schedule, and every **12 seconds** on **Friends**, **Crew**, and **Map** while the tab is open. Offline edits wait in a queue. The guide JSON and hero images are cached by the service worker (`wa-v5`).
 
 Check-ins for the group are visible to everyone who signed in with the group code, same as before. Pairing is the extra step that reveals phone numbers.
+
+## Assets
+
+Hero photo and share image come from Wikimedia (CC0 GRB exterior). See `assets/CREDITS.md`. App icons are project artwork, not AfroTech branding.
+
+Regenerate after changing `assets/icon.svg`:
+
+```bash
+npm run build:assets
+```
+
+Then bump `CACHE` in `sw.js` if you already deployed.
+
+For link previews (iMessage, Slack), set an absolute `og:image` URL in `index.html` to your GitHub Pages site, e.g. `https://timeless-dave.github.io/afrotech_wya/assets/og.jpg`.
+
+## School group: staying in sync
+
+1. **Same group code** — everyone on **Friends** sees the same check-ins.
+2. **Home screen** — Add to Home Screen on iPhone/Android so the app opens full screen.
+3. **Check in often** — **Me** or **Map**: pick level + room, tap **Still here** when you move, **Live** only while you are walking between halls (stops when you leave the page or tap stop).
+4. **Crew pairs** — Pair with classmates you call/text; save your number once on **Crew**.
+5. **Keep Friends or Crew open** — polling is faster there (12s). Background tabs still sync when you return.
+6. **Meet pin** — On **Map**, **Meet me here** so others see where to find you on that floor.
 
 ## Local testing
 
 ```bash
 npm install
+npm run build:assets   # optional; committed sizes are in assets/
 npm test          # schedule filter, guide files, and crew rules
 npm run dev       # site + local stand-in at http://localhost:8080, group code "test"
 ```

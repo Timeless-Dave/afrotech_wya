@@ -3,11 +3,13 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "build:assets": "node scripts/build-assets.mjs",
     "build:guide": "node scripts/build-guide.mjs",
     "dev": "node scripts/dev-server.mjs",
     "test": "node scripts/test.mjs"
   },
   "devDependencies": {
-    "@electric-sql/pglite": "0.3.16"
+    "@electric-sql/pglite": "0.3.16",
+    "sharp": "^0.35.5"
   }
 }

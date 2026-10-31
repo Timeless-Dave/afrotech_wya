@@ -78,6 +78,11 @@ const booths = JSON.parse(readFileSync('data/booths.json', 'utf8'));
 assert.ok(booths.length >= 8 && booths.every(b => b.certainty === 'approximate' && b.level === '1'));
 ok(`guide files: ${partner.length} side events, ${food.length} food listings, ${rec.length} recruiter posts, ${booths.length} booths`);
 
+for (const f of ['assets/icon-192.png', 'assets/icon-512.png', 'assets/hero-640.webp', 'assets/og.jpg']) {
+  assert.ok(statSync(f).size > 500, `missing or tiny asset: ${f}`);
+}
+ok('PWA assets (icons, hero, og) are present');
+
 function walk(dir, hit) {
   for (const name of readdirSync(dir)) {
     if (name === 'node_modules' || name === '.git' || name === '_ui-check.mjs') continue;
