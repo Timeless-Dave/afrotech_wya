@@ -1,5 +1,5 @@
 // Keeps the app, schedule and map data available offline.
-const CACHE = 'wa-v3';
+const CACHE = 'wa-v4';
 const FILES = ['./', 'index.html', 'app.css', 'app.js', 'config.js', 'manifest.webmanifest',
   'data/schedule.json', 'data/rooms.json', 'data/sessions-full.json', 'data/partner-events.json',
   'data/freefood.json', 'data/recruiters.json', 'data/companies.json', 'data/booths.json', 'data/guide-meta.json'];
