@@ -1,0 +1,21 @@
+[
+ {"id":"hall-e","label":"Main Stage (Exhibit Hall E 1st Floor)","short":"Hall E, Main Stage","level":"1","onPlan":true,"x":250,"y":10,"w":60,"h":110},
+ {"id":"hall-cd","label":"Product & Innovation Stage (Exhibit Hall C&D (1st Floor))","short":"Hall C and D, P and I Stage","level":"1","onPlan":true,"x":130,"y":10,"w":115,"h":110},
+ {"id":"hall-b","label":"Exhibit Hall B","short":"Hall B","level":"1","onPlan":true,"x":70,"y":10,"w":55,"h":110},
+ {"id":"hall-a","label":"Exhibit Hall A","short":"Hall A","level":"1","onPlan":true,"x":10,"y":10,"w":55,"h":110},
+ {"id":"expo-yard","label":"Expo Hall / The Yard","short":"Expo, The Yard","level":"none","onPlan":false},
+ {"id":"expo-book","label":"Expo Hall / Book Nook","short":"Expo, Book Nook","level":"none","onPlan":false},
+ {"id":"founders","label":"Founders Pavillion","short":"Founders Pavillion","level":"none","onPlan":false},
+ {"id":"smart-cities","label":"Smart Cities Pavillion","short":"Smart Cities Pavillion","level":"none","onPlan":false},
+ {"id":"authors","label":"AfroTech Authors Pavilion Presented by Penguin Random House","short":"Authors Pavilion","level":"none","onPlan":false},
+ {"id":"coca-cola","label":"Coca-Cola Lounge","short":"Coca-Cola Lounge","level":"none","onPlan":false},
+ {"id":"balcony-c","label":"Balconies C - Avenida Balcony","short":"Avenida Balcony C","level":"2","onPlan":true,"x":130,"y":10,"w":115,"h":50},
+ {"id":"ballroom-a","label":"Grand Ballroom A","short":"Ballroom A","level":"3","onPlan":true,"x":190,"y":10,"w":120,"h":55},
+ {"id":"ballroom-c","label":"Grand Ballroom C","short":"Ballroom C","level":"3","onPlan":true,"x":190,"y":70,"w":120,"h":55},
+ {"id":"room-310","label":"Meeting Room 310","short":"Room 310","level":"3","onPlan":true,"x":10,"y":10,"w":80,"h":55},
+ {"id":"room-320","label":"Meeting Room 320","short":"Room 320","level":"3","onPlan":true,"x":95,"y":10,"w":80,"h":55},
+ {"id":"discovery-green","label":"Discovery Green","short":"Discovery Green","level":"none","onPlan":false},
+ {"id":"blavity","label":"Blavity House Party Events","short":"Blavity House Party","level":"none","onPlan":false},
+ {"id":"elsewhere-grb","label":"Elsewhere in GRB","short":"Elsewhere in GRB","level":"none","onPlan":false},
+ {"id":"outside-grb","label":"Outside GRB","short":"Outside GRB","level":"none","onPlan":false}
+]
