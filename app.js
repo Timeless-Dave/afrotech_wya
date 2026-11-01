@@ -3,7 +3,7 @@
 const TZ = 'America/Chicago';
 const ROSTER = ['Angel', 'David', 'Aziz', 'Raphael', 'Yannick', 'Grace', 'Aldine', 'Peter', 'Nicholas', 'Kudzi', 'Kenny', 'Ms. Yussif'];
 const LOCAL_NAMES = ['Aldine', 'Angel', 'Aziz', 'Grace', 'Kenny', 'Kudzi', 'Peter', 'Raphael', 'Yannick', 'Nicholas', 'David'];
-const PUBLIC = new Set(['guide', 'now', 'map', 'signin']);
+const PUBLIC = new Set(['guide', 'now', 'map', 'signin', 'help']);
 const FLOOR_HONEST = 'GPS cannot tell which floor you are on indoors. Set the level yourself. Phone altitude, when the phone has it, is only a hint. It is not a floor.';
 const POLL_MS = 20000;
 const POLL_FAST_MS = 12000;
@@ -140,7 +140,7 @@ async function installPwa() {
 function updateInstallBar() {
   if (!$install) return;
   if (isStandalone()) { $install.hidden = true; return; }
-  if (load('wa_install_dismiss', false) && !deferredInstall) { $install.hidden = true; return; }
+  if (load('wa_install_dismiss', false)) { $install.hidden = true; return; }
   if (deferredInstall) {
     $install.hidden = false;
     $install.innerHTML = `<p><strong>Get the app</strong><br><span>Full screen, faster check-ins.</span></p><div class="actions"><button type="button" class="primary" data-act="install-pwa">Install</button><button type="button" class="x" data-act="dismiss-install" aria-label="Not now">×</button></div>`;
@@ -189,6 +189,7 @@ const ICONS = {
   refresh: '<path d="M20 11a8 8 0 0 0-14.6-4.5M4 4v4h4M4 13a8 8 0 0 0 14.6 4.5M20 20v-4h-4"/>',
   users: '<path d="M16 19v-1.5a3.5 3.5 0 0 0-3.5-3.5h-5A3.5 3.5 0 0 0 4 17.5V19"/><circle cx="10" cy="7.5" r="3.5"/><path d="M20 19v-1.5a3.5 3.5 0 0 0-2.6-3.4M15.5 4.1a3.5 3.5 0 0 1 0 6.8"/>',
   copy: '<rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V5.5A1.5 1.5 0 0 0 14.5 4h-9A1.5 1.5 0 0 0 4 5.5v9A1.5 1.5 0 0 0 5.5 16H8"/>',
+  help: '<circle cx="12" cy="12" r="8.5"/><path d="M9.6 9.5a2.5 2.5 0 0 1 4.8.9c0 1.7-2.4 2.1-2.4 3.6M12 17h.01"/>',
   bell: '<path d="M6 16V11a6 6 0 0 1 12 0v5l1.5 2h-15z"/><path d="M10 20.5a2 2 0 0 0 4 0"/>',
   pause: '<path d="M9 5v14M15 5v14"/>',
   play: '<path d="M7 5v14l11-7z"/>',
@@ -669,6 +670,7 @@ function viewSignIn() {
         <button type="submit" class="primary block">Continue</button>
       </form>
     </div>
+    <a class="list-link" href="#help">${ico('help')}<span class="grow"><strong>New here?</strong><small>See how it works, with pictures and a 1-minute video</small></span><span class="chev" aria-hidden="true">›</span></a>
     <h2>School crew quick pick</h2>
     <p class="muted">Tap your name. Tap it again to clear it.</p>
     <div class="roster">${ROSTER.map(n => `<button type="button" data-act="pick" data-name="${esc(n)}" class="${n === name ? 'on' : ''}">${esc(n)}</button>`).join('')}</div>`;
@@ -683,7 +685,7 @@ function onboardCard() {
       <li><a href="#friends">Friends</a> — see everyone on the link. It refreshes about every 12 seconds.</li>
       <li><a href="#crew">Crew</a> — pair to call and text. Turn on alerts on <a href="#me">Me</a>.</li>
     </ol>
-    <button type="button" class="sm" data-act="dismiss-onboard">Got it</button>
+    <div class="actions"><button type="button" class="sm" data-act="dismiss-onboard">Got it</button><a class="btn sm" href="#help">${ico('help')}<span>Full walkthrough</span></a></div>
   </div>`;
 }
 
@@ -1247,6 +1249,7 @@ function viewMe() {
     ${checkinCard()}
     <h2>My events today</h2>
     ${todays.length ? todays.map(e => `<div class="row"><div class="name">${esc(e.title)}</div><p class="muted">${eventLine(e)}</p><div class="actions">${goingButton(e)}</div></div>`).join('') : emptyBox('No agreed events today.')}
+    <a class="list-link" href="#help">${ico('help')}<span class="grow"><strong>How it works</strong><small>Pictures and a 1-minute video tour</small></span><span class="chev" aria-hidden="true">›</span></a>
     <a class="list-link" href="#crew">${ico('users')}<span class="grow"><strong>Crew and pairing</strong><small>Share numbers to call and text</small></span><span class="chev" aria-hidden="true">›</span></a>
     <h2>Settings</h2>
     <div class="card">
@@ -1261,7 +1264,118 @@ function viewMe() {
     </div>`;
 }
 
-const VIEWS = { guide: viewGuide, now: viewNow, map: viewMap, schedule: viewSchedule, crew: viewCrew, friends: viewFriends, me: viewMe, signin: viewSignIn };
+// "How it works": each step's numbered list matches the orange markers in its screenshot
+// (screenshots come from scripts/build-walkthrough.mjs).
+const HELP = [
+  { id: '01-join', title: 'Join your crew', intro: 'Open the invite link from your group chat. It saves the group code on your phone, so you only type your name.', items: [
+    '<b>Your name.</b> Use the name your friends know. Add a last initial if it is common.',
+    '<b>Group code saved.</b> The invite link filled it in. Tap Change only if you were given a new code.',
+    '<b>Continue</b> takes you to Friends.',
+    '<b>Quick pick.</b> On the school crew? Tap your name instead of typing. Tap it again to clear it.'
+  ] },
+  { id: '02-me', title: 'Set your spot', intro: 'Your friends can only find you if you tell the app where you are. GPS cannot tell floors apart indoors, so you pick.', items: [
+    '<b>Your spot</b> as your friends see it.',
+    '<b>Still here</b> refreshes your time. Tap it when you stay in one place. After 45 minutes without an update your spot shows as Stale.',
+    '<b>Share live</b> sends “At GRB” or “Away from GRB” while the page is open. It never shares a map coordinate.',
+    '<b>Level.</b> Pick your floor first.',
+    '<b>Room.</b> Then pick the room, hall, or lounge.',
+    '<b>Booth number.</b> At the expo? Type the booth number and tap Check in.'
+  ] },
+  { id: '03-friends', title: 'See where everyone is', intro: 'Friends shows everyone in the group, freshest check-ins first. It updates about every 12 seconds.', items: [
+    '<b>Live ticker.</b> Tap it to pause or play the ribbon.',
+    '<b>Ribbon item.</b> Who is where right now. Tap it to open that room, then tap I’m here to join them.',
+    '<b>You.</b> Your own card is always on top.',
+    '<b>A friend.</b> Where they are and when they last updated.',
+    '<b>Badges.</b> Live means sharing now. Stale means the spot is old. Meet here means they dropped a meet pin.',
+    '<b>Crew</b> is where you pair with friends to call and text.'
+  ] },
+  { id: '04-select', title: 'Ring, text, or call friends', intro: 'Tap one or more people to select them. Tap a person again to unselect.', items: [
+    '<b>Selected</b> people get a check mark.',
+    '<b>Who you picked.</b> Tap All to select everyone.',
+    '<b>Ring</b> buzzes their phones with an alert. It works for everyone in the group.',
+    '<b>Text</b> opens one group message. Call appears when you pick one person. Both need a pairing.',
+    '<b>Clear</b> unselects everyone.'
+  ] },
+  { id: '05-ring', title: 'When someone rings you', intro: 'Your phone buzzes and a banner appears at the top, on any screen.', items: [
+    '<b>Who is ringing</b> and where they are.',
+    '<b>Go to them</b> opens their room on the map.',
+    '<b>Call</b> shows up if you are paired.',
+    '<b>Ring back</b> lets them know you saw it. Tap × to dismiss.'
+  ] },
+  { id: '06-map', title: 'Use the map', intro: 'A simple drawing of the George R. Brown Convention Center. It is not to scale.', items: [
+    '<b>Floors.</b> Switch between Level 1, 2, 3, and places off the plan.',
+    '<b>Green count</b> shows how many friends are in a room. A gold dot is a meet pin.',
+    '<b>Tap any room</b> to see who is there.',
+    '<b>About this map</b> explains solid rooms (on the official plan) and dashed rooms (approximate).'
+  ] },
+  { id: '07-room', title: 'Join a friend or set a meeting spot', intro: 'Tapping a room opens this panel from the bottom.', items: [
+    '<b>The room</b> and a note about where it is.',
+    '<b>Here now</b> lists who checked in there.',
+    '<b>I’m here</b> checks you in to this room in one tap.',
+    '<b>Meet me here</b> drops a meet pin. It shows first in everyone’s ribbon. Tap again to clear it.',
+    '<b>Close</b> the panel. You can also tap outside it.'
+  ] },
+  { id: '08-booths', title: 'Expo booths', intro: 'Booth numbers come from recruiter and company posts. They are listed, not drawn.', items: [
+    '<b>Booth number and company.</b> Tap it to see who is there and check in.',
+    '<b>Green</b> means friends are at that booth now.'
+  ] },
+  { id: '09-guide', title: 'Plan your day in Guide', intro: 'Every official session, side event, free food stop, recruiter, and company, saved on your phone.', items: [
+    '<b>Search</b> sessions, speakers, events, and companies.',
+    '<b>Sections.</b> Now / Next, Agenda, My schedule, Side events, Free food, Recruiters, Companies.',
+    '<b>Days.</b> Swipe to pick a day.',
+    '<b>Star</b> saves it to My schedule, which warns you when two starred things overlap.',
+    '<b>Map</b> jumps to the room.'
+  ] },
+  { id: '10-plan', title: 'The group plan', intro: 'Plan is the list of events the whole group agreed to go to.', items: [
+    '<b>Add event</b> to the group list.',
+    '<b>When, where, and who is going.</b>',
+    '<b>Mark going</b> so the group knows you will be there.'
+  ] },
+  { id: '11-crew', title: 'Invite and pair', intro: 'Crew is where you invite people and swap numbers safely.', items: [
+    '<b>Share invite</b> sends the group link with the code built in.',
+    '<b>Your pair code.</b> Share it so a friend can pair with you. Pairing lets you both see each other’s number.',
+    '<b>Got a friend’s code?</b> Paste it here and tap Accept.',
+    '<b>My number.</b> Only people you pair with can see it.'
+  ] },
+  { id: '12-settings', title: 'Alerts, install, and logging out', intro: 'At the bottom of Me.', items: [
+    '<b>Check-in alerts</b> ping you when friends update. Rings always alert you once notifications are allowed.',
+    '<b>Install</b> adds the app to your home screen for full screen and faster check-ins. On iPhone: Share, then Add to Home Screen.',
+    '<b>Log out</b> before you hand your phone to someone else.'
+  ] }
+];
+const HELP_FAQ = [
+  ['Why doesn’t it know my floor?', 'GPS cannot tell which floor you are on inside a building. Pick your level and room yourself.'],
+  ['What does Stale mean?', 'The spot is old: no update for 45 minutes (5 minutes when sharing live). Ask them, or ring them.'],
+  ['Who can see my phone number?', 'Only people you pair with on Crew. Everyone in the group can see your check-in.'],
+  ['What if I lose signal?', 'Check-ins are saved on your phone and sent when you are back online. The top bar shows “Offline · 1 waiting”.'],
+  ['Ring didn’t buzz my friend?', 'Their phone needs notifications allowed (Me › Check-in alerts). The banner still shows when they open the app.']
+];
+function viewHelp() {
+  const toc = HELP.map((s, i) => `<a href="#help" data-act="help-jump" data-id="${s.id}">${i + 1}. ${esc(s.title)}</a>`).join('');
+  return `<h1>How it works</h1>
+    <p class="lead">A quick tour of everything in the app. The numbers on each picture match the steps under it.</p>
+    <figure class="tour">
+      <video controls playsinline muted preload="none" poster="assets/walkthrough/tour-poster.webp" width="390" height="844">
+        <source src="assets/walkthrough/tour.mp4" type="video/mp4">
+      </video>
+      <figcaption>The 1-minute tour: join, set your spot, find a friend, ring, and plan.</figcaption>
+    </figure>
+    <nav class="help-toc" aria-label="Steps">${toc}</nav>
+    ${HELP.map((s, i) => `<section class="help-step" id="help-${s.id}">
+      <div class="help-shot"><img src="assets/walkthrough/${s.id}.webp" alt="${esc(s.title)}, with numbered markers" width="720" height="1558" loading="lazy" decoding="async"></div>
+      <div class="help-text">
+        <p class="help-num">Step ${i + 1}</p>
+        <h2>${esc(s.title)}</h2>
+        <p>${esc(s.intro)}</p>
+        <ol class="marks">${s.items.map(t => `<li>${t}</li>`).join('')}</ol>
+      </div>
+    </section>`).join('')}
+    <h2>Questions</h2>
+    ${HELP_FAQ.map(([q, a]) => `<details class="faq"><summary>${esc(q)}</summary><p>${esc(a)}</p></details>`).join('')}
+    <p class="actions"><a class="btn primary" href="${session ? '#friends' : '#signin'}">${session ? 'Back to Friends' : 'Join your crew'}</a></p>`;
+}
+
+const VIEWS = { help: viewHelp, guide: viewGuide, now: viewNow, map: viewMap, schedule: viewSchedule, crew: viewCrew, friends: viewFriends, me: viewMe, signin: viewSignIn };
 function route() {
   let r = location.hash.replace(/^#/, '').split('&')[0];
   if (r.startsWith('pair=')) r = session ? 'crew' : 'guide';
@@ -1278,7 +1392,7 @@ function setTabs() {
     : ['guide', 'map', 'signin'];
   $tabs.hidden = false;
   const r = route();
-  const active = { now: 'guide', crew: signed ? 'friends' : 'signin' }[r] || r;
+  const active = { now: 'guide', crew: signed ? 'friends' : 'signin', help: '' }[r] ?? r;
   document.body.classList.toggle('no-hero', signed || !(r === 'guide' || r === 'signin' || r === 'now'));
   $tabs.querySelectorAll('a').forEach(a => {
     const id = a.getAttribute('href').slice(1);
@@ -1456,6 +1570,7 @@ document.addEventListener('click', e => {
     const code = document.getElementById('code');
     if (next && code && !code.value) code.focus();
   }
+  else if (act === 'help-jump') { e.preventDefault(); document.getElementById('help-' + el.dataset.id)?.scrollIntoView({ block: 'start' }); }
   else if (act === 'toggle-code') { ui.showCode = !ui.showCode; render(); document.getElementById('code')?.focus(); }
   else if (act === 'edit-code') { ui.editCode = true; ui.code = ''; render(); document.getElementById('code')?.focus(); }
   else if (act === 'sel') {

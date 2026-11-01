@@ -912,7 +912,9 @@ body.sheet-open { overflow: hidden; }
   animation: ring-shake 1s ease-in-out 3;
 }
 .ringbar-actions { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px auto 0; max-width: var(--content-wide); }
-.ringbar-actions .ghost { margin-left: auto; font-size: 20px; font-weight: 400; }
+.ringbar { position: relative; }
+.ringbar .ringbar-in { padding-right: 36px; }
+.ringbar-actions .ghost { position: absolute; top: 6px; right: 6px; width: 40px; padding: 0; font-size: 22px; font-weight: 400; }
 @keyframes ring-in { from { opacity: 0; transform: translateY(-6px); } }
 @keyframes ring-shake { 0%, 100% { transform: rotate(0); } 15%, 45% { transform: rotate(-14deg); } 30%, 60% { transform: rotate(14deg); } 75% { transform: rotate(0); } }
 
@@ -1007,3 +1009,95 @@ body.has-selbar .toast { bottom: calc(var(--nav-h) + var(--safe-b) + 140px); }
 .tile:active { transform: none; background: var(--soft); }
 @media (min-width: 600px) { .tiles { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
 @media (prefers-reduced-motion: reduce) { .ribbon.moving .rib-track { animation: none; } }
+@media (min-width: 900px) {
+  .selbar { bottom: 0; padding-bottom: 14px; }
+  body.has-selbar .toast { bottom: 150px; }
+  .map-wrap svg { max-width: 720px; margin: 0 auto; }
+}
+
+/* ---------- Help button + How it works ---------- */
+.help-btn {
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  margin-right: -8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text);
+}
+.help-btn svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.help-btn:active { background: var(--soft); }
+.tour { margin: 12px 0 8px; }
+.tour video {
+  display: block;
+  width: 100%;
+  max-width: 340px;
+  height: auto;
+  aspect-ratio: 390 / 844;
+  margin: 0 auto;
+  background: #111;
+  border: 1px solid var(--text);
+}
+.tour figcaption { text-align: center; font-size: 13px; color: var(--muted); margin-top: 8px; }
+.help-toc { display: flex; flex-wrap: wrap; gap: 6px; margin: 16px 0 8px; }
+.help-toc a {
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: none;
+  padding: 6px 10px;
+  border: 1px solid var(--line);
+  background: var(--bg);
+}
+.help-step {
+  background: var(--bg);
+  border: 1px solid var(--line);
+  margin: 16px 0;
+  scroll-margin-top: calc(var(--head-h, 56px) + 12px);
+}
+.help-shot { background: var(--soft); border-bottom: 1px solid var(--line); padding: 16px 16px 0; }
+.help-shot img {
+  display: block;
+  width: 100%;
+  max-width: 300px;
+  height: auto;
+  margin: 0 auto;
+  border: 1px solid var(--text);
+  border-bottom: 0;
+  aspect-ratio: 390 / 844;
+  object-fit: cover;
+  object-position: top;
+}
+.help-text { padding: 14px 16px 16px; }
+.help-text h2 { margin: 2px 0 6px; font-size: 20px; }
+.help-text > p { margin: 0 0 10px; color: var(--muted); font-size: 15px; }
+.help-num { margin: 0; font-size: 12px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: #ff4f12; }
+ol.marks { list-style: none; counter-reset: m; margin: 0; padding: 0; }
+ol.marks li { counter-increment: m; position: relative; padding: 6px 0 6px 36px; font-size: 15px; line-height: 1.4; border-top: 1px solid var(--line); }
+ol.marks li:first-child { border-top: 0; }
+ol.marks li::before {
+  content: counter(m);
+  position: absolute;
+  left: 0;
+  top: 6px;
+  width: 24px;
+  height: 24px;
+  background: #ff4f12;
+  color: #fff;
+  font-weight: 800;
+  font-size: 13px;
+  line-height: 24px;
+  text-align: center;
+}
+details.faq { background: var(--bg); border: 1px solid var(--line); margin: 8px 0; }
+details.faq summary { cursor: pointer; list-style: none; padding: 14px 16px; font-weight: 600; display: flex; justify-content: space-between; gap: 10px; }
+details.faq summary::-webkit-details-marker { display: none; }
+details.faq summary::after { content: "+"; font-size: 20px; line-height: 1; color: var(--muted); }
+details.faq[open] summary::after { content: "−"; }
+details.faq p { margin: 0; padding: 0 16px 14px; color: var(--muted); font-size: 15px; }
+@media (min-width: 900px) {
+  .help-step { display: grid; grid-template-columns: 340px 1fr; }
+  .help-shot { border-bottom: 0; border-right: 1px solid var(--line); padding: 20px 20px 0; }
+  .help-text { padding: 20px 24px; }
+}
+@media (min-width: 900px) { .help-step { scroll-margin-top: calc(var(--head-h, 56px) + 80px); } }

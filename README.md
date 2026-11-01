@@ -13,6 +13,7 @@ Times are America/Chicago.
 - **Friends, Schedule, Me.** Anyone with the link and group code can **Join** with their name (saved on the device until log out). A random device id is stored on the session so duplicate names show as `Name (#id)`. Check-in alerts optional. Phone numbers show only for paired people, plus any numbers in your private `config.local.js`.
 - **Live ribbon.** A ticker under the header shows who checked in where (meet pins first). Tap a name to open that room on the map and tap **I'm here** to join them. The **Live** button pauses it.
 - **Ring.** On Friends, tap people to select them (tap again to unselect), then **Ring**, **Text**, or **Call**. A ring buzzes their phone with a banner and a **Go to** button. Needs `supabase/ring.sql`.
+- **How it works.** The **?** in the header opens a walkthrough: a 1-minute captioned video tour, 12 annotated screenshots (numbered markers match numbered steps), and a short FAQ.
 - **Invite link.** Crew has a **Share invite** link with the group code inside (`?code=`). Opening it saves the code on the phone, so friends only type their name.
 
 ## Phone numbers stay out of git
@@ -142,3 +143,17 @@ Sign in with any name and group code `test`. Open two browsers, create a pair li
 ## Deploy
 
 GitHub Pages serves this folder as a static site. Run the three SQL files on Supabase first, then set `config.js`. After a data change, update `CACHE` in `sw.js` and push. Phones keep the previous cache until that name changes.
+
+## Walkthrough screenshots and video
+
+The pictures and the tour video on **How it works** live in `assets/walkthrough/`. They are generated from the real app, so rebuild them after UI changes:
+
+```bash
+npm run dev                                   # fresh local server (restart it first)
+CHROME="/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" node scripts/build-walkthrough.mjs
+```
+
+It seeds a sample crew on the local server, drives the app with Puppeteer, draws the numbered markers, and records the captioned tour (needs `ffmpeg`). It never touches the production Supabase. If you change a screen, keep the step text in `HELP` in `app.js` matching the marker order in the script.
+
+UI check (also local only): `CHROME=... node scripts/_ui-check.mjs` while `npm run dev` is running.
+

@@ -10,6 +10,7 @@
   },
   "devDependencies": {
     "@electric-sql/pglite": "0.3.16",
+    "puppeteer-core": "^23.11.1",
     "sharp": "^0.35.5"
   }
 }

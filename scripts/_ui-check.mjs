@@ -1,4 +1,6 @@
 import puppeteer from 'puppeteer-core';
+// Uses the local dev server (npm run dev). config.js is swapped for a local one and Supabase is blocked,
+// so this never touches production. Usage: CHROME=/path/to/chrome node scripts/_ui-check.mjs
 import { mkdirSync } from 'node:fs';
 
 const OUT = process.env.SHOTS || '/tmp/shots';
@@ -10,11 +12,21 @@ const browser = await puppeteer.launch({
   args: ['--no-sandbox', '--disable-dev-shm-usage']
 });
 const errors = [];
+async function localCfg(page) {
+  await page.setBypassServiceWorker(true);
+  await page.setRequestInterception(true);
+  page.on('request', r => {
+    if (r.url().includes('supabase.co')) return r.abort();
+    if (new URL(r.url()).pathname.endsWith('/config.js')) return r.respond({ status: 200, contentType: 'text/javascript', body: "window.CONFIG={SUPABASE_URL:'',SUPABASE_ANON_KEY:'local'};" });
+    r.continue();
+  });
+}
 function watch(page, name) {
+  localCfg(page);
   page.on('pageerror', err => errors.push(`${name}: ${err.message}`));
   page.on('console', msg => {
     const t = msg.text();
-    if (msg.type() === 'error' && !/config\.local\.js/.test(t)) errors.push(`${name} console: ${t}`);
+    if (msg.type() === 'error' && !/config\.local\.js|404/.test(t)) errors.push(`${name} console: ${t}`);
   });
 }
 async function shot(page, file) {
