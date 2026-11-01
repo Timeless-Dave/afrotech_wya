@@ -838,7 +838,7 @@ function viewMap() {
         const pin = here.some(s => s.meet_pin);
         const lines = wrapLabel(r.short, Math.max(8, Math.floor(r.w / 6.2)));
         return `<g>
-          <rect class="room ${r.certainty === 'approximate' ? 'approx' : ''} ${n ? 'has' : ''} ${ui.mapRoom === r.id ? 'sel' : ''}" x="${r.x}" y="${r.y}" width="${r.w}" height="${r.h}" rx="4" data-act="room" data-id="${esc(r.id)}"><title>${esc(r.short)}</title></rect>
+          <rect class="room ${r.certainty === 'approximate' ? 'approx' : ''} ${n ? 'has' : ''} ${ui.mapRoom === r.id ? 'sel' : ''}" x="${r.x}" y="${r.y}" width="${r.w}" height="${r.h}" data-act="room" data-id="${esc(r.id)}"><title>${esc(r.short)}</title></rect>
           ${lines.map((w, i) => `<text x="${r.x + 6}" y="${r.y + 16 + i * 13}">${esc(w)}</text>`).join('')}
           ${n ? `<circle class="count" cx="${r.x + r.w - 14}" cy="${r.y + r.h - 14}" r="10"></circle>
             <text class="count-text" x="${r.x + r.w - 14}" y="${r.y + r.h - 10}" text-anchor="middle">${n}</text>` : ''}
