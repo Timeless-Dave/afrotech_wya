@@ -1,11 +1,11 @@
 import puppeteer from 'puppeteer-core';
 import { mkdirSync } from 'node:fs';
 
-const OUT = '/tmp/shots';
+const OUT = process.env.SHOTS || '/tmp/shots';
 mkdirSync(OUT, { recursive: true });
 const base = 'http://localhost:8080/?now=2026-11-04T10:30';
 const browser = await puppeteer.launch({
-  executablePath: '/usr/bin/google-chrome-stable',
+  executablePath: process.env.CHROME || '/usr/bin/google-chrome-stable',
   headless: 'new',
   args: ['--no-sandbox', '--disable-dev-shm-usage']
 });
@@ -43,6 +43,7 @@ if (await overflow(phone)) throw new Error('agenda overflows');
 await shot(phone, 'mobile_agenda.png');
 
 await phone.click('button[data-act="star"]');
+await phone.$eval('button[data-act="star"]:not(.on)', el => el.scrollIntoView({ block: 'center' }));
 await phone.click('button[data-act="star"]:not(.on)');
 await phone.click('button[data-seg="starred"]');
 await phone.waitForFunction(() => /Overlaps|starred item/.test(document.body.innerText));
@@ -124,8 +125,11 @@ const sms = await david.$eval('a[href^="sms:"]', a => a.getAttribute('href'));
 if (!sms.startsWith('sms:')) throw new Error('sms ' + sms);
 await shot(david, 'mobile_paired_call.png');
 
-await david.click('button[data-level="3"]');
+await david.click('a[href="#me"]');
+await david.waitForSelector('button[data-act="set-level"][data-level="3"]');
+await david.click('button[data-act="set-level"][data-level="3"]');
 await david.waitForFunction(() => document.body.innerText.includes('Level 3, room not set'));
+await shot(david, 'mobile_me.png');
 await david.click('a[href="#map"]');
 await david.waitForSelector('button[data-level="3"]');
 await david.evaluate(() => document.querySelector('button[data-level="3"]').click());

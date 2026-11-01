@@ -1,5 +1,5 @@
 // Keeps the app, schedule and map data available offline.
-const CACHE = 'wa-v7';
+const CACHE = 'wa-v8';
 const FILES = ['./', 'index.html', 'app.css', 'app.js', 'config.js', 'manifest.webmanifest',
   'assets/icon.svg', 'assets/icon-32.png', 'assets/icon-192.png', 'assets/icon-512.png', 'assets/apple-touch-icon.png',
   'assets/hero-640.webp', 'assets/hero-1280.webp', 'assets/hero-1920.webp', 'assets/og.jpg',

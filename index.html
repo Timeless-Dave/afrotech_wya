@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#111111">
+<meta name="theme-color" content="#ffffff">
 <meta name="description" content="AfroTech 2026 guide, GRB map, and live crew finder for your school group at the George R. Brown Convention Center in Houston.">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Where Are You">
@@ -28,34 +28,39 @@
 <link rel="stylesheet" href="app.css">
 </head>
 <body>
-<div id="sync" class="sync" role="status"></div>
-<div id="install" class="install-bar" hidden aria-live="polite"></div>
-<header class="site-shell">
-  <div class="site-hero">
-    <picture>
-      <source type="image/webp" srcset="assets/hero-640.webp 640w, assets/hero-1280.webp 1280w, assets/hero-1920.webp 1920w" sizes="100vw">
-      <img src="assets/hero-1280.webp" alt="George R. Brown Convention Center exterior, Houston" width="1280" height="960" decoding="async" fetchpriority="high">
-    </picture>
-    <div class="site-hero-shade" aria-hidden="true"></div>
-  </div>
-  <div class="site-brand">
-    <img class="site-logo" src="assets/icon-192.png" alt="" width="44" height="44" decoding="async">
-    <div class="site-brand-text">
-      <p class="site-title">Where Are You</p>
-      <p class="site-sub">AfroTech 2026 · George R. Brown · Houston</p>
-    </div>
+<header class="appbar">
+  <div class="appbar-in">
+    <a class="brand" href="#" aria-label="Where Are You home">
+      <img class="site-logo" src="assets/icon-192.png" alt="" width="32" height="32" decoding="async">
+      <span class="brand-text">
+        <span class="site-title">Where Are You</span>
+        <span class="site-sub">AfroTech 2026 · GRB Houston</span>
+      </span>
+    </a>
+    <div id="sync" class="sync" role="status"></div>
   </div>
 </header>
-<nav id="tabs" class="tabs" hidden>
-  <a href="#guide">Guide</a>
-  <a href="#now">Now</a>
-  <a href="#map">Map</a>
-  <a href="#schedule">Schedule</a>
-  <a href="#crew">Crew</a>
-  <a href="#friends">Friends</a>
-  <a href="#me">Me</a>
-  <a href="#signin">Join</a>
+<div id="install" class="install-bar" hidden aria-live="polite"></div>
+<div class="site-hero" id="hero">
+  <picture>
+    <source type="image/webp" srcset="assets/hero-640.webp 640w, assets/hero-1280.webp 1280w, assets/hero-1920.webp 1920w" sizes="100vw">
+    <img src="assets/hero-1280.webp" alt="George R. Brown Convention Center exterior, Houston" width="1280" height="960" decoding="async" fetchpriority="high">
+  </picture>
+  <div class="site-hero-shade" aria-hidden="true"></div>
+  <div class="site-hero-text">
+    <p class="hero-kicker">AfroTech 2026 · Houston</p>
+    <p class="hero-title">Find your crew at the GRB.</p>
+  </div>
+</div>
+<nav id="tabs" class="tabs" hidden aria-label="Main">
+  <a href="#friends"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M16 19v-1.5a3.5 3.5 0 0 0-3.5-3.5h-5A3.5 3.5 0 0 0 4 17.5V19"/><circle cx="10" cy="7.5" r="3.5"/><path d="M20 19v-1.5a3.5 3.5 0 0 0-2.6-3.4M15.5 4.1a3.5 3.5 0 0 1 0 6.8"/></svg><span>Friends</span></a>
+  <a href="#guide"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5.5A1.5 1.5 0 0 1 5.5 4H11v16H5.5A1.5 1.5 0 0 1 4 18.5z"/><path d="M20 5.5A1.5 1.5 0 0 0 18.5 4H13v16h5.5a1.5 1.5 0 0 0 1.5-1.5z"/></svg><span>Guide</span></a>
+  <a href="#map"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 4 3.5 6v14L9 18l6 2 5.5-2V4L15 6z"/><path d="M9 4v14M15 6v14"/></svg><span>Map</span></a>
+  <a href="#schedule"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="5" width="17" height="15" rx="2"/><path d="M3.5 10h17M8 3v4M16 3v4"/></svg><span>Plan</span></a>
+  <a href="#me"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s-6.5-5.6-6.5-11a6.5 6.5 0 0 1 13 0c0 5.4-6.5 11-6.5 11z"/><circle cx="12" cy="10" r="2.5"/></svg><span>Me</span></a>
+  <a href="#signin"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 4h4.5A1.5 1.5 0 0 1 20 5.5v13a1.5 1.5 0 0 1-1.5 1.5H14"/><path d="M10 16l4-4-4-4M14 12H4"/></svg><span>Join</span></a>
 </nav>
+<div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
 <main id="view"></main>
 <script src="config.js"></script>
 <script src="app.js"></script>

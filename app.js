@@ -92,13 +92,13 @@ function pingNotify(oldData, newData) {
   }
 }
 async function askNotify() {
-  if (!('Notification' in window)) { ui.msg = 'This browser does not support notifications.'; return false; }
+  if (!('Notification' in window)) { ui.note = 'This browser does not support alerts. Add the app to your Home Screen first.'; return false; }
   if (Notification.permission === 'granted') { notifyOn = true; save('wa_notify', true); return true; }
-  if (Notification.permission === 'denied') { ui.msg = 'Notifications are blocked in browser settings.'; return false; }
+  if (Notification.permission === 'denied') { ui.note = 'Notifications are blocked in browser settings.'; return false; }
   const p = await Notification.requestPermission();
   notifyOn = p === 'granted';
   save('wa_notify', notifyOn);
-  if (!notifyOn) ui.msg = 'Notifications stay off until you allow them.';
+  if (!notifyOn) ui.note = 'Alerts stay off. You can turn them on later from Me.';
   return notifyOn;
 }
 async function installPwa() {
@@ -124,12 +124,12 @@ function updateInstallBar() {
   if (load('wa_install_dismiss', false) && !deferredInstall) { $install.hidden = true; return; }
   if (deferredInstall) {
     $install.hidden = false;
-    $install.innerHTML = `<p>Install for full-screen and faster check-ins.</p><div class="actions"><button type="button" class="primary" data-act="install-pwa">Add to Home Screen</button><button type="button" data-act="dismiss-install">Not now</button></div>`;
+    $install.innerHTML = `<p><strong>Get the app</strong><br><span>Full screen, faster check-ins.</span></p><div class="actions"><button type="button" class="primary" data-act="install-pwa">Install</button><button type="button" class="x" data-act="dismiss-install" aria-label="Not now">×</button></div>`;
     return;
   }
   if (isIosInstall() && session) {
     $install.hidden = false;
-    $install.innerHTML = `<p>iPhone: Share → Add to Home Screen.</p><div class="actions"><button type="button" data-act="dismiss-install">Got it</button></div>`;
+    $install.innerHTML = `<p><strong>Get the app</strong><br><span>Tap Share, then Add to Home Screen.</span></p><div class="actions"><button type="button" data-act="dismiss-install">Got it</button></div>`;
     return;
   }
   $install.hidden = true;
@@ -150,6 +150,30 @@ const chicagoDay = t => new Date(t).toLocaleDateString('en-CA', { timeZone: TZ }
 function fmtWhen(t) {
   return chicagoDay(t) === chicagoDay(now()) ? fmtTime(t) : `${fmtDay(chicagoDay(t))}, ${fmtTime(t)}`;
 }
+function ago(t) {
+  const m = Math.round((now() - t) / 60000);
+  if (m < 1) return 'just now';
+  if (m < 60) return `${m} min ago`;
+  return fmtWhen(t);
+}
+const ICONS = {
+  star: '<path d="m12 3.2 2.7 5.5 6 .9-4.35 4.25 1.03 6L12 17l-5.38 2.85 1.03-6L3.3 9.6l6-.9z"/>',
+  map: '<path d="M9 4 3.5 6v14L9 18l6 2 5.5-2V4L15 6z"/><path d="M9 4v14M15 6v14"/>',
+  ext: '<path d="M14 4h6v6M20 4l-9 9M18 14v4.5a1.5 1.5 0 0 1-1.5 1.5h-11A1.5 1.5 0 0 1 4 18.5v-11A1.5 1.5 0 0 1 5.5 6H10"/>',
+  phone: '<path d="M5 4h3.5l1.5 4-2 1.5a11 11 0 0 0 6.5 6.5l1.5-2 4 1.5V19a1.5 1.5 0 0 1-1.5 1.5A15.5 15.5 0 0 1 3.5 5.5 1.5 1.5 0 0 1 5 4z"/>',
+  sms: '<path d="M4 5.5A1.5 1.5 0 0 1 5.5 4h13A1.5 1.5 0 0 1 20 5.5v9a1.5 1.5 0 0 1-1.5 1.5H9l-5 4z"/>',
+  search: '<circle cx="11" cy="11" r="6.5"/><path d="m20 20-4.2-4.2"/>',
+  check: '<path d="m5 12.5 4.5 4.5L19 7.5"/>',
+  plus: '<path d="M12 5v14M5 12h14"/>',
+  pin: '<path d="M12 21s-6.5-5.6-6.5-11a6.5 6.5 0 0 1 13 0c0 5.4-6.5 11-6.5 11z"/><circle cx="12" cy="10" r="2.5"/>',
+  live: '<circle cx="12" cy="12" r="2.5"/><path d="M7.8 7.8a6 6 0 0 0 0 8.4M16.2 7.8a6 6 0 0 1 0 8.4M5 5a10 10 0 0 0 0 14M19 5a10 10 0 0 1 0 14"/>',
+  refresh: '<path d="M20 11a8 8 0 0 0-14.6-4.5M4 4v4h4M4 13a8 8 0 0 0 14.6 4.5M20 20v-4h-4"/>',
+  users: '<path d="M16 19v-1.5a3.5 3.5 0 0 0-3.5-3.5h-5A3.5 3.5 0 0 0 4 17.5V19"/><circle cx="10" cy="7.5" r="3.5"/><path d="M20 19v-1.5a3.5 3.5 0 0 0-2.6-3.4M15.5 4.1a3.5 3.5 0 0 1 0 6.8"/>',
+  copy: '<rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V5.5A1.5 1.5 0 0 0 14.5 4h-9A1.5 1.5 0 0 0 4 5.5v9A1.5 1.5 0 0 0 5.5 16H8"/>',
+  share: '<path d="M12 15V4M8 8l4-4 4 4M5 12v6.5A1.5 1.5 0 0 0 6.5 20h11a1.5 1.5 0 0 0 1.5-1.5V12"/>'
+};
+const ico = name => `<svg class="ico" viewBox="0 0 24 24" aria-hidden="true">${ICONS[name]}</svg>`;
+const initials = n => String(n || '?').replace(/^Ms\.\s*/, '').trim().split(/\s+/).slice(0, 2).map(w => w[0] || '').join('').toUpperCase() || '?';
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 function safeUrl(u) {
   try {
@@ -299,16 +323,40 @@ async function sync() {
 }
 
 function renderSync() {
-  if (!session) { $sync.textContent = net.ok ? '' : 'Offline'; $sync.className = 'sync' + (net.ok ? '' : ' offline'); return; }
-  const waiting = outbox.length ? ` · ${outbox.length} change${outbox.length > 1 ? 's' : ''} waiting` : '';
+  const put = (short, full, cls) => {
+    $sync.innerHTML = short ? `<span>${esc(short)}</span>` : '';
+    $sync.title = full || '';
+    $sync.className = 'sync' + (cls ? ' ' + cls : '');
+  };
+  if (!session) return net.ok ? put('', '', '') : put('Offline', 'Offline', 'offline');
+  const n = outbox.length;
+  const waiting = n ? ` · ${n} waiting` : '';
+  const waitingFull = n ? ` · ${n} change${n > 1 ? 's' : ''} waiting` : '';
   const at = cache?.syncedAt ? fmtTime(cache.syncedAt) : 'never';
-  let text, off = false;
-  if (!net.ok || !navigator.onLine) { text = cache ? `Offline. Showing saved ${at}` : 'Offline. No saved data yet'; off = true; }
-  else if (cache && Date.now() - cache.syncedAt < POLL_MS * 2) text = `Live · synced ${at}`;
-  else text = `Last synced ${at}`;
-  if (nowOverride) text += ` · test time ${fmtWhen(now())}`;
-  $sync.textContent = text + waiting;
-  $sync.className = 'sync' + (off ? ' offline' : '');
+  let short, full, cls = '';
+  if (!net.ok || !navigator.onLine) {
+    short = 'Offline'; cls = 'offline';
+    full = cache ? `Offline. Showing saved ${at}` : 'Offline. No saved data yet';
+  } else if (cache && Date.now() - cache.syncedAt < POLL_MS * 2) { short = 'Live'; full = `Live · synced ${at}`; }
+  else { short = `Synced ${at}`; full = `Last synced ${at}`; cls = 'idle'; }
+  if (nowOverride) full += ` · test time ${fmtWhen(now())}`;
+  put(short + waiting, full + waitingFull, cls);
+}
+
+let toastTimer = null;
+const $toast = document.getElementById('toast');
+function renderToast() {
+  if (!$toast) return;
+  const text = ui.msg || ui.note;
+  const key = `${ui.msg ? 'e' : 'n'}:${text}`;
+  if (!text) { $toast.hidden = true; ui._toast = ''; clearTimeout(toastTimer); return; }
+  if (ui._toast === key) return;
+  ui._toast = key;
+  $toast.hidden = false;
+  $toast.className = 'toast' + (ui.msg ? ' err' : '');
+  $toast.innerHTML = `<p>${esc(text)}</p><button type="button" data-act="toast-close" aria-label="Dismiss">×</button>`;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { ui.msg = ''; ui.note = ''; renderToast(); }, ui.msg ? 8000 : 5000);
 }
 
 const roomById = id => rooms.find(r => r.id === id);
@@ -348,7 +396,8 @@ function placeText(s) {
   const name = s.place_label || room?.short || roomName(s.room_id);
   const approx = room?.certainty === 'approximate' || String(s.room_id).startsWith('booth-') ? ' · approximate' : '';
   const unknown = !levelTxt ? 'Floor not verified · ' : '';
-  return `${unknown}${[levelTxt, name].filter(Boolean).join(' · ')}${approx}`;
+  const parts = levelTxt && String(name).startsWith(levelTxt) ? [name] : [levelTxt, name];
+  return `${unknown}${parts.filter(Boolean).join(' · ')}${approx}`;
 }
 function placeBits(roomId) {
   const r = roomById(roomId);
@@ -359,9 +408,9 @@ function placeBits(roomId) {
   return `${building} · ${level} · ${r.short}${flag}`;
 }
 function badge(s) {
-  if (!s) return '<span class="badge stale">No status</span>';
-  const kind = s.mode === 'live' ? '<span class="badge live">Live</span>' : '<span class="badge">Manual</span>';
-  return kind + (isStale(s) ? ' <span class="badge stale">Stale</span>' : '') + (s.meet_pin ? ' <span class="badge">Meet pin</span>' : '');
+  if (!s) return '<span class="badges"><span class="badge stale">No status</span></span>';
+  const kind = s.mode === 'live' && !isStale(s) ? '<span class="badge live">Live</span>' : s.mode === 'live' ? '<span class="badge">Live</span>' : '<span class="badge">Manual</span>';
+  return `<span class="badges">${kind}${isStale(s) ? '<span class="badge stale">Stale</span>' : ''}${s.meet_pin ? '<span class="badge pin">Meet here</span>' : ''}</span>`;
 }
 function numberFor(person) {
   if (!person) return null;
@@ -375,7 +424,10 @@ function phoneLinks(person) {
   if (!got) return '';
   const href = telHref(got.n);
   if (!href) return '';
-  return `<div class="actions"><a class="btn" href="tel:${esc(href)}">Call</a><a class="btn" href="sms:${esc(href)}">Text</a>${got.local ? '<span class="muted">On this device only</span>' : ''}</div>`;
+  return callText(href, got.local ? '<span class="muted">On this device only</span>' : '');
+}
+function callText(href, extra = '') {
+  return `<div class="actions"><a class="btn sm" href="tel:${esc(href)}">${ico('phone')}<span>Call</span></a><a class="btn sm" href="sms:${esc(href)}">${ico('sms')}<span>Text</span></a>${extra}</div>`;
 }
 
 function guidePool() {
@@ -428,21 +480,23 @@ function toggleStar(key) {
 
 function viewSignIn() {
   const name = ui.signName || load('wa_last_name', '') || '';
-  const wait = pendingPair() ? '<p class="note">A pair link is waiting. Join, then accept it on Crew.</p>' : '';
-  return `<h1>Join</h1>
-    <p class="muted">Type the name your friends know. It stays on this phone until you log out. Anyone with the link can join — add a last initial if your name is common.</p>
+  const wait = pendingPair() ? '<p class="hint">A pair link is waiting. Join, then accept it on Crew.</p>' : '';
+  return `<h1>Join your crew</h1>
+    <p class="lead">Use the name your friends know. It stays on this phone until you log out. Add a last initial if your name is common.</p>
     ${wait}
-    <form data-act="signin">
-      <label class="search">Your name
-        <input id="name" required autocomplete="nickname" maxlength="40" value="${esc(name)}" placeholder="First name or nickname">
-      </label>
-      <label class="search">Group code
-        <input id="code" type="password" autocomplete="current-password" required value="${esc(ui.code || '')}" placeholder="From your group chat">
-      </label>
-      <p><button class="primary" style="width:100%">Continue</button></p>
-    </form>
-    <p class="muted">School crew quick pick (optional):</p>
-    <div class="grid">${ROSTER.map(n => `<button type="button" data-act="pick" data-name="${esc(n)}" class="${n === name ? 'on' : ''}">${esc(n)}</button>`).join('')}</div>`;
+    <div class="card">
+      <form data-act="signin">
+        <label class="field"><span>Your name</span>
+          <input id="name" required autocomplete="nickname" maxlength="40" value="${esc(name)}" placeholder="First name or nickname" enterkeyhint="next">
+        </label>
+        <label class="field"><span>Group code</span>
+          <input id="code" type="password" autocomplete="current-password" required value="${esc(ui.code || '')}" placeholder="From your group chat" enterkeyhint="go">
+        </label>
+        <button class="primary block">Continue</button>
+      </form>
+    </div>
+    <h2>School crew quick pick</h2>
+    <div class="roster">${ROSTER.map(n => `<button type="button" data-act="pick" data-name="${esc(n)}" class="${n === name ? 'on' : ''}">${esc(n)}</button>`).join('')}</div>`;
 }
 
 function onboardCard() {
@@ -450,39 +504,60 @@ function onboardCard() {
   return `<div class="card onboard">
     <p><strong>Quick start</strong></p>
     <ol>
-      <li><a href="#me">Me</a> or <a href="#map">Map</a> — pick floor + room, tap <strong>Still here</strong> when you move.</li>
-      <li><a href="#friends">Friends</a> — see everyone on the link (updates every ~12s here).</li>
-      <li><a href="#crew">Crew</a> — pair to call/text; turn on alerts on <a href="#me">Me</a>.</li>
+      <li><a href="#me">Me</a> — pick your floor and room. Tap <strong>Still here</strong> when you stay put.</li>
+      <li><a href="#friends">Friends</a> — see everyone on the link. It refreshes about every 12 seconds.</li>
+      <li><a href="#crew">Crew</a> — pair to call and text. Turn on alerts on <a href="#me">Me</a>.</li>
     </ol>
-    <button type="button" data-act="dismiss-onboard">Got it</button>
+    <button type="button" class="sm" data-act="dismiss-onboard">Got it</button>
+  </div>`;
+}
+
+function personRow(p, extra = '') {
+  const s = statusOf(p.id), stale = isStale(s);
+  const evs = currentEventsOf(p.id);
+  const with_ = new Set();
+  if (s && !stale && !NO_GROUP_ROOMS.includes(s.room_id)) {
+    cache.data.status.forEach(o => { if (o.person_id !== p.id && o.room_id === s.room_id && !isStale(o)) with_.add(o.person_id); });
+  }
+  evs.forEach(e => goingTo(e.id).forEach(id => { if (id !== p.id) with_.add(id); }));
+  const isMe = p.id === session.person_id;
+  const live = s && s.mode === 'live' && !stale;
+  return `<div class="row${isMe ? ' me' : ''}">
+    <div class="person">
+      <div class="avatar${live ? ' live' : ''}${!s || stale ? ' stale' : ''}" aria-hidden="true">${esc(initials(p.name))}</div>
+      <div class="person-body">
+        <div class="top"><span class="name">${esc(personName(p.id))}${isMe ? ' <span class="muted">(you)</span>' : ''}</span>${badge(s)}</div>
+        <p class="place${stale ? ' stale-text' : ''}">${s ? esc(placeText(s)) : 'Not set'}${s?.mode === 'live' && s.live_note ? ` · ${esc(s.live_note)}` : ''}</p>
+        ${evs.length ? `<p class="muted">In: ${evs.map(e => esc(e.title)).join('; ')}</p>` : ''}
+        ${with_.size ? `<p class="muted">With: ${[...with_].map(personName).map(esc).join(', ')}</p>` : ''}
+        ${s ? `<p class="when">Updated ${esc(ago(Date.parse(s.updated_at)))}</p>` : ''}
+        ${isMe ? `<div class="actions"><a class="btn sm" href="#me">${ico('pin')}<span>Update my spot</span></a></div>` : phoneLinks(p)}
+        ${extra}
+      </div>
+    </div>
   </div>`;
 }
 
 function viewFriends() {
-  if (!cache) return '<h1>Friends</h1><p>No data yet. Connect once to load.</p>';
+  const head = `<div class="page-head"><h1>Where are my friends?</h1><a class="btn sm" href="#crew">${ico('users')}<span>Crew</span></a></div>`;
+  if (!cache) return `${head}<p class="empty">No data yet. Connect once to load.</p>`;
   const same = cache.data.same_names || [];
   const dupMe = same.includes(session.name);
   const warn = dupMe ? `<p class="conflict">More than one person is using “${esc(session.name)}”. You show as ${esc(personName(session.person_id))}. Re-join with a clearer name if friends get confused.</p>` : '';
-  const people = [...cache.data.people].sort((a, b) => (b.id === session.person_id) - (a.id === session.person_id));
-  return `${onboardCard()}<h1>Where are my friends?</h1>
+  const people = [...cache.data.people].sort((a, b) => {
+    if (a.id === session.person_id) return -1;
+    if (b.id === session.person_id) return 1;
+    const sa = statusOf(a.id), sb = statusOf(b.id);
+    const fa = sa && !isStale(sa), fb = sb && !isStale(sb);
+    if (fa !== fb) return fa ? -1 : 1;
+    return String(sb?.updated_at || '').localeCompare(String(sa?.updated_at || ''));
+  });
+  const fresh = people.filter(p => { const s = statusOf(p.id); return s && !isStale(s); }).length;
+  return `${onboardCard()}${head}
+    <p class="lead">${people.length} on the link · ${fresh} checked in recently</p>
     ${warn}
-    <p class="muted">Call and text show up when someone you paired with saved a number, or when this device has config.local.js.</p>` + people.map(p => {
-    const s = statusOf(p.id), stale = isStale(s);
-    const evs = currentEventsOf(p.id);
-    const with_ = new Set();
-    if (s && !stale && !NO_GROUP_ROOMS.includes(s.room_id)) {
-      cache.data.status.forEach(o => { if (o.person_id !== p.id && o.room_id === s.room_id && !isStale(o)) with_.add(o.person_id); });
-    }
-    evs.forEach(e => goingTo(e.id).forEach(id => { if (id !== p.id) with_.add(id); }));
-    return `<div class="row">
-      <div class="top"><span class="name">${esc(personName(p.id))}${p.id === session.person_id ? ' (you)' : ''}</span><span>${badge(s)}</span></div>
-      <p class="${stale ? 'stale-text' : ''}">${s ? esc(placeText(s)) : 'Not set'}${s?.mode === 'live' && s.live_note ? ` · ${esc(s.live_note)}` : ''}</p>
-      ${evs.length ? `<p>In: ${evs.map(e => esc(e.title)).join('; ')}</p>` : ''}
-      ${with_.size ? `<p>With: ${[...with_].map(personName).map(esc).join(', ')}</p>` : ''}
-      <p class="muted">${s ? `Updated ${fmtWhen(Date.parse(s.updated_at))}` : ''}</p>
-      ${phoneLinks(p)}
-    </div>`;
-  }).join('');
+    ${people.map(p => personRow(p)).join('')}
+    <p class="muted">Call and Text show up for people you pair with on <a href="#crew">Crew</a>.</p>`;
 }
 
 function eventLine(e) {
@@ -493,44 +568,60 @@ function card(it) {
   const conflicts = on ? itemConflicts(it, starredItems()) : [];
   const link = it.url ? safeUrl(it.url) : '';
   const place = it.roomId ? placeBits(it.roomId) : (it.venue || it.room || 'Place not listed');
+  const tags = [
+    it.track,
+    priceLine(it),
+    ...(it.levels?.length ? [`Ticket: ${it.levels.join(', ')}`] : []),
+    ...(it.tags || [])
+  ].filter(Boolean);
   return `<div class="row">
-    <div class="name">${esc(it.title)}</div>
-    ${it.host ? `<p class="muted">${esc(it.host)}</p>` : ''}
-    <p class="muted">${it.day ? esc(fmtDay(it.day)) + ' · ' : ''}${esc(whenLine(it))}</p>
-    <p class="muted">${esc(place)}</p>
-    ${it.track ? `<p class="muted">${esc(it.track)}</p>` : ''}
-    ${it.levels?.length ? `<p class="muted">Ticket: ${esc(it.levels.join(', '))}</p>` : ''}
-    ${it.speakers?.length ? `<p>Speakers: ${esc(it.speakers.join(', '))}</p>` : ''}
-    ${it.tags?.length ? `<p class="muted">${esc(it.tags.join(' · '))}</p>` : ''}
-    ${priceLine(it) ? `<p class="muted">${esc(priceLine(it))}</p>` : ''}
-    ${(it.offerings || []).map(o => `<p>${esc(o.kind)} · ${esc(o.certainty)}${o.quote ? `: ${esc(o.quote)}` : ''}</p>`).join('')}
+    <div class="top">
+      <div>
+        <div class="name">${esc(it.title)}</div>
+        ${it.host ? `<p class="muted">${esc(it.host)}</p>` : ''}
+      </div>
+      <button class="star-btn ${on ? 'on' : ''}" data-act="star" data-key="${esc(it.key)}" aria-pressed="${on ? 'true' : 'false'}" aria-label="${on ? 'Remove star' : 'Star'}: ${esc(it.title)}" title="${on ? 'Starred' : 'Star'}"><svg viewBox="0 0 24 24" aria-hidden="true">${ICONS.star}</svg></button>
+    </div>
+    <div class="meta">
+      <span>${it.day ? esc(fmtDay(it.day)) + ' · ' : ''}${esc(whenLine(it))}</span>
+      <span>${esc(place)}</span>
+    </div>
+    ${tags.length ? `<div class="tags">${tags.map(t => `<span class="tag">${esc(t)}</span>`).join('')}</div>` : ''}
+    ${it.speakers?.length ? `<p class="desc">Speakers: ${esc(it.speakers.join(', '))}</p>` : ''}
+    ${(it.offerings || []).map(o => `<p class="desc">${esc(o.kind)} · ${esc(o.certainty)}${o.quote ? `: ${esc(o.quote)}` : ''}</p>`).join('')}
     ${it.accessNote ? `<p class="muted">${esc(it.accessNote)}</p>` : ''}
     ${it.hasFood ? '<p class="muted">Listed on the free food page too.</p>' : ''}
     ${conflicts.length ? `<p class="conflict">Overlaps ${conflicts.map(c => esc(c.title)).join('; ')}</p>` : ''}
-    <div class="actions">
-      <button data-act="star" data-key="${esc(it.key)}" class="${on ? 'on' : ''}" aria-pressed="${on ? 'true' : 'false'}">${on ? 'Starred' : 'Star'}</button>
-      ${it.roomId ? `<button data-act="goto-room" data-id="${esc(it.roomId)}">Map</button>` : ''}
-      ${link ? `<a class="btn" href="${link}" target="_blank" rel="noopener noreferrer">Link</a>` : ''}
-    </div>
+    ${it.roomId || link ? `<div class="actions">
+      ${it.roomId ? `<button class="sm" data-act="goto-room" data-id="${esc(it.roomId)}">${ico('map')}<span>Map</span></button>` : ''}
+      ${link ? `<a class="btn sm" href="${link}" target="_blank" rel="noopener noreferrer">${ico('ext')}<span>Details</span></a>` : ''}
+    </div>` : ''}
   </div>`;
 }
 function dayButtons(days, cur, act) {
-  return `<div class="seg">${days.map(d => `<button data-act="${act}" data-day="${esc(d)}" class="${d === cur ? 'on' : ''}">${d === 'all' ? 'All' : fmtDay(d)}</button>`).join('')}</div>`;
+  return `<div class="chips" data-chips="${esc(act)}">${days.map(d => `<button data-act="${act}" data-day="${esc(d)}" class="${d === cur ? 'on' : ''}">${d === 'all' ? 'All days' : fmtDay(d)}</button>`).join('')}</div>`;
+}
+function toggleBtn(act, on, label) {
+  return `<button class="toggle ${on ? 'on' : ''}" data-act="${act}" aria-pressed="${on ? 'true' : 'false'}"><span class="box"><svg viewBox="0 0 24 24" aria-hidden="true">${ICONS.check}</svg></span>${esc(label)}</button>`;
 }
 function segBar() {
-  const segs = [['now', 'Now / Next'], ['agenda', 'Agenda'], ['events', 'Side events'], ['food', 'Free food'], ['recruiters', 'Recruiters'], ['companies', 'Companies'], ['starred', 'My schedule']];
-  return `<div class="seg">${segs.map(([k, l]) => `<button data-act="seg" data-seg="${k}" class="${ui.seg === k && !ui.q.trim() ? 'on' : ''}">${l}</button>`).join('')}</div>`;
+  const segs = [['now', 'Now / Next'], ['agenda', 'Agenda'], ['starred', 'My schedule'], ['events', 'Side events'], ['food', 'Free food'], ['recruiters', 'Recruiters'], ['companies', 'Companies']];
+  return `<div class="chips sticky" data-chips="seg">${segs.map(([k, l]) => {
+    const n = k === 'starred' && stars.size ? ` <span class="count-pill">${stars.size}</span>` : '';
+    return `<button data-act="seg" data-seg="${k}" class="${ui.seg === k && !ui.q.trim() ? 'on' : ''}">${l}${n}</button>`;
+  }).join('')}</div>`;
 }
 function sourcesFooter() {
   const src = guideMeta.sources || [];
   if (!src.length) return '';
-  return `<h2>Sources</h2><ul class="src">${src.map(s => {
+  return `<div class="footer-src"><details class="about"><summary>Sources and data</summary><ul class="src">${src.map(s => {
     const href = s.url ? safeUrl(s.url) : '';
     const name = href ? `<a href="${href}" target="_blank" rel="noopener noreferrer">${esc(s.name)}</a>` : esc(s.name);
     return `<li>${name}. ${esc(s.note || '')}</li>`;
   }).join('')}</ul>
-    <p class="muted">Saved ${esc(guideMeta.generated || '')}. ${esc(guideMeta.sessions || '')} official sessions, ${esc(guideMeta.events || '')} side events. Times are America/Chicago. The live agenda can change.</p>`;
+    <p class="muted">Saved ${esc(guideMeta.generated || '')}. ${esc(guideMeta.sessions || '')} official sessions, ${esc(guideMeta.events || '')} side events. Times are America/Chicago. The live agenda can change.</p></details></div>`;
 }
+const emptyBox = t => `<p class="empty">${t}</p>`;
 function viewAgendaNow() {
   const pool = guidePool();
   const mine = pool.filter(it => stars.has(it.key));
@@ -539,23 +630,28 @@ function viewAgendaNow() {
   const nowAll = happening(pool);
   const nextAll = upcoming(sessionsFull);
   const shown = ui.showAll ? nowAll : nowAll.slice(0, 8);
-  const block = (title, list, empty) => `<h2>${title}</h2>${list.length ? `<div class="cards">${list.map(card).join('')}</div>` : `<p>${empty}</p>`}`;
-  return `<p class="muted">${fmtWhen(now())} · Chicago</p>`
+  const block = (title, list, empty, total = list.length) => `<h2>${title}${total ? ` <span class="count-pill">${total}</span>` : ''}</h2>${list.length ? `<div class="cards">${list.map(card).join('')}</div>` : emptyBox(empty)}`;
+  const agreed = session ? agreedEvents().filter(e => isRunning(e)) : [];
+  const agreedHtml = session && agreed.length ? `<h2>Group plan right now</h2>${agreed.map(e => {
+    const going = goingTo(e.id);
+    return `<div class="card"><div class="name">${esc(e.title)}</div><p class="muted">${eventLine(e)}</p><p class="desc">Going: ${going.length ? going.map(personName).map(esc).join(', ') : 'No one yet'}</p></div>`;
+  }).join('')}` : '';
+  return `<p class="muted">${fmtWhen(now())} · Chicago time</p>`
+    + agreedHtml
     + block('Starred now', nowMine, 'Nothing you starred is on right now.')
-    + block('Starred next', nextMine, 'No starred item is coming up.')
-    + block('On now', shown, 'Nothing in the saved guide is on at this time.')
-    + (nowAll.length > 8 && !ui.showAll ? `<p><button data-act="showall">Show all ${nowAll.length} on now</button></p>` : '')
+    + block('Starred next', nextMine, 'No starred item is coming up. Tap the star on anything to save it.')
+    + block('On now', shown, 'Nothing in the saved guide is on at this time.', nowAll.length)
+    + (nowAll.length > 8 && !ui.showAll ? `<p><button class="block" data-act="showall">Show all ${nowAll.length} on now</button></p>` : '')
     + block('Next on the official agenda', nextAll, 'No later official session in the saved agenda.');
 }
 function viewAgenda() {
-  if (!sessionsFull.length) return '<p>Agenda file missing. Run npm run build:guide.</p>';
+  if (!sessionsFull.length) return emptyBox('Agenda file missing. Run npm run build:guide.');
   const days = [...new Set(sessionsFull.map(s => s.day))];
   if (!days.includes(ui.day)) ui.day = pickDay(days);
   let list = sessionsFull.filter(s => s.day === ui.day).map(s => ({ ...s, kind: 'session' }));
   if (ui.studentOnly) list = list.filter(s => !s.levels?.length || s.levels.includes('Student'));
   return `${dayButtons(days, ui.day, 'day')}
-    <div class="seg"><button data-act="student" class="${ui.studentOnly ? 'on' : ''}">${ui.studentOnly ? 'Student and open tickets' : 'All ticket levels'}</button></div>
-    <p class="muted">${list.length} sessions. Star one to keep it in My schedule. Speakers are whoever the official card listed.</p>
+    <div class="filters">${toggleBtn('student', ui.studentOnly, 'Student tickets only')}<span class="muted">${list.length} sessions</span></div>
     <div class="cards">${list.map(card).join('')}</div>`;
 }
 function viewEvents() {
@@ -564,9 +660,9 @@ function viewEvents() {
   let list = partnerEvents.filter(e => e.day === ui.eventDay).map(e => ({ ...e, kind: 'event' }));
   if (ui.eventsFood) list = list.filter(looksLikeFood);
   return `${dayButtons(days, ui.eventDay, 'evday')}
-    <div class="seg"><button data-act="eventsfood" class="${ui.eventsFood ? 'on' : ''}">${ui.eventsFood ? 'Food and drinks' : 'All side events'}</button></div>
+    <div class="filters">${toggleBtn('eventsfood', ui.eventsFood, 'Food and drinks')}<span class="muted">${list.length} events</span></div>
     <p class="muted">Partner and community events for Nov 1–7. Confirm the link before you go.</p>
-    <div class="cards">${list.map(card).join('') || '<p>Nothing in this filter.</p>'}</div>`;
+    <div class="cards">${list.map(card).join('')}</div>${list.length ? '' : emptyBox('Nothing in this filter.')}`;
 }
 function viewFood() {
   const days = ['all', ...new Set(foods.map(f => f.day).filter(Boolean))];
@@ -579,7 +675,10 @@ function viewFood() {
   return `${dayButtons(days, day, 'foodday')}
     <div class="seg">${modes.map(([k, l]) => `<button data-act="foodmode" data-mode="${k}" class="${ui.foodMode === k ? 'on' : ''}">${l}</button>`).join('')}</div>
     <p class="muted">From the AfroTech.guide free food list. “Included” means the listing quoted complimentary or included food or drinks. It can sell out.</p>
-    <div class="cards">${list.map(f => card({ ...f, kind: 'food' })).join('') || '<p>Nothing in this filter.</p>'}</div>`;
+    <div class="cards">${list.map(f => card({ ...f, kind: 'food' })).join('')}</div>${list.length ? '' : emptyBox('Nothing in this filter.')}`;
+}
+function boothBtn(num) {
+  return session && num ? `<button class="sm" data-act="booth-here" data-num="${esc(num)}">${ico('pin')}<span>I'm here</span></button>` : '';
 }
 function viewRecruiters() {
   const rows = [...recruiters].sort((a, b) => a.company.localeCompare(b.company) || a.person.localeCompare(b.person));
@@ -588,33 +687,31 @@ function viewRecruiters() {
       const href = r.link ? safeUrl(r.link) : '';
       return `<div class="row">
         <div class="name">${esc(r.person)}</div>
-        <p>${esc(r.company)}${r.boothNum ? ` · Booth ${esc(r.boothNum)}` : ''}</p>
-        ${r.role ? `<p class="muted">${esc(r.role)}</p>` : ''}
-        ${r.booth ? `<p class="muted">${esc(r.booth)}</p>` : ''}
-        <div class="actions">
-          ${href ? `<a class="btn" href="${href}" target="_blank" rel="noopener noreferrer">Post</a>` : ''}
-          ${session && r.boothNum ? `<button data-act="booth-here" data-num="${esc(r.boothNum)}">I'm at this booth</button>` : ''}
-        </div>
+        <div class="meta"><span>${esc(r.company)}${r.boothNum ? ` · Booth ${esc(r.boothNum)}` : ''}</span>${r.role ? `<span>${esc(r.role)}</span>` : ''}${r.booth ? `<span>${esc(r.booth)}</span>` : ''}</div>
+        ${href || (session && r.boothNum) ? `<div class="actions">
+          ${href ? `<a class="btn sm" href="${href}" target="_blank" rel="noopener noreferrer">${ico('ext')}<span>Post</span></a>` : ''}
+          ${boothBtn(r.boothNum)}
+        </div>` : ''}
       </div>`;
     }).join('')}</div>`;
 }
 function viewCompanies() {
   let list = [...companies];
   if (ui.boothsOnly) list = list.filter(c => c.boothNum);
-  return `<div class="seg"><button data-act="booths-toggle" class="${ui.boothsOnly ? 'on' : ''}">${ui.boothsOnly ? 'Booths only' : 'All companies'}</button></div>
-    <p class="muted">${list.length} companies. Search finds the rest by name.</p>
+  return `<div class="filters">${toggleBtn('booths-toggle', ui.boothsOnly, 'With a booth number')}<span class="muted">${list.length} companies</span></div>
+    <p class="muted">Search finds the rest by name.</p>
     <div class="cards">${list.map(c => {
       const href = c.careers ? safeUrl(c.careers) : '';
       const guide = c.guide ? safeUrl(c.guide) : '';
       return `<div class="row">
         <div class="name">${esc(c.name)}</div>
-        <p class="muted">${c.boothNum ? `Booth ${esc(c.boothNum)} · approximate` : 'No booth number in the saved list'}${c.sponsor ? ' · sponsor' : ''}</p>
-        ${c.roles?.length ? `<p class="muted">${esc(c.roles.slice(0, 4).join(' · '))}</p>` : ''}
-        <div class="actions">
-          ${href ? `<a class="btn" href="${href}" target="_blank" rel="noopener noreferrer">Careers</a>` : ''}
-          ${guide ? `<a class="btn" href="${guide}" target="_blank" rel="noopener noreferrer">Guide</a>` : ''}
-          ${session && c.boothNum ? `<button data-act="booth-here" data-num="${esc(c.boothNum)}">I'm at this booth</button>` : ''}
-        </div>
+        <div class="meta"><span>${c.boothNum ? `Booth ${esc(c.boothNum)} · approximate` : 'No booth number in the saved list'}${c.sponsor ? ' · sponsor' : ''}</span></div>
+        ${c.roles?.length ? `<div class="tags">${c.roles.slice(0, 4).map(r => `<span class="tag">${esc(r)}</span>`).join('')}</div>` : ''}
+        ${href || guide || (session && c.boothNum) ? `<div class="actions">
+          ${href ? `<a class="btn sm" href="${href}" target="_blank" rel="noopener noreferrer">${ico('ext')}<span>Careers</span></a>` : ''}
+          ${guide ? `<a class="btn sm" href="${guide}" target="_blank" rel="noopener noreferrer">${ico('ext')}<span>Guide</span></a>` : ''}
+          ${boothBtn(c.boothNum)}
+        </div>` : ''}
       </div>`;
     }).join('')}</div>`;
 }
@@ -624,7 +721,7 @@ function viewStarred() {
   const byDay = [...new Set(items.map(it => it.day || 'unscheduled'))];
   return `<p class="muted">Stored on this phone only. Overlaps use the saved start and end.</p>
     ${overlapping.length ? `<p class="conflict">${overlapping.length} starred ${overlapping.length > 1 ? 'items overlap' : 'item overlaps another'}.</p>` : ''}
-    ${items.length ? byDay.map(d => `<h2>${d === 'unscheduled' ? 'Time not listed' : fmtDay(d)}</h2><div class="cards">${items.filter(it => (it.day || 'unscheduled') === d).map(card).join('')}</div>`).join('') : '<p>No stars yet. Star a session, side event, or food stop.</p>'}`;
+    ${items.length ? byDay.map(d => `<h2>${d === 'unscheduled' ? 'Time not listed' : fmtDay(d)}</h2><div class="cards">${items.filter(it => (it.day || 'unscheduled') === d).map(card).join('')}</div>`).join('') : emptyBox('No stars yet. Tap the star on a session, side event, or food stop.')}`;
 }
 function viewSearch(q) {
   const n = q.toLowerCase();
@@ -638,15 +735,15 @@ function viewSearch(q) {
   const fd = cap(foods, f => has([f.title, f.host, f.venue, ...(f.offerings || []).map(o => o.quote)].join(' ')));
   const rc = cap(recruiters, r => has([r.person, r.company, r.booth, r.role].join(' ')));
   const co = cap(companies, c => has([c.name, c.booth, ...(c.roles || [])].join(' ')));
-  const block = (title, pack, draw) => pack.n ? `<h2>${title} (${pack.n})</h2><div class="cards">${pack.rows.map(draw).join('')}</div>${pack.n > pack.rows.length ? '<p class="muted">Showing the first 30.</p>' : ''}` : '';
+  const block = (title, pack, draw) => pack.n ? `<h2>${title} <span class="count-pill">${pack.n}</span></h2><div class="cards">${pack.rows.map(draw).join('')}</div>${pack.n > pack.rows.length ? '<p class="muted">Showing the first 30.</p>' : ''}` : '';
   const body = [
     block('Sessions', ss, s => card({ ...s, kind: 'session' })),
     block('Side events', ev, e => card({ ...e, kind: 'event' })),
     block('Free food', fd, f => card({ ...f, kind: 'food' })),
-    block('Recruiters', rc, r => `<div class="row"><div class="name">${esc(r.person)}</div><p>${esc(r.company)}${r.boothNum ? ` · Booth ${esc(r.boothNum)}` : ''}</p></div>`),
-    block('Companies', co, c => `<div class="row"><div class="name">${esc(c.name)}</div><p class="muted">${c.boothNum ? `Booth ${esc(c.boothNum)}` : 'No booth number'}</p></div>`)
+    block('Recruiters', rc, r => `<div class="row"><div class="name">${esc(r.person)}</div><div class="meta"><span>${esc(r.company)}${r.boothNum ? ` · Booth ${esc(r.boothNum)}` : ''}</span></div>${r.boothNum && session ? `<div class="actions">${boothBtn(r.boothNum)}</div>` : ''}</div>`),
+    block('Companies', co, c => `<div class="row"><div class="name">${esc(c.name)}</div><div class="meta"><span>${c.boothNum ? `Booth ${esc(c.boothNum)}` : 'No booth number'}</span></div>${c.boothNum && session ? `<div class="actions">${boothBtn(c.boothNum)}</div>` : ''}</div>`)
   ].join('');
-  return body || '<p>No matches.</p>';
+  return body || emptyBox(`No matches for “${esc(q)}”.`);
 }
 function viewGuide() {
   const q = ui.q.trim();
@@ -660,26 +757,24 @@ function viewGuide() {
   else if (ui.seg === 'starred') body = viewStarred();
   else body = viewAgendaNow();
   return `<h1>Guide</h1>
-    <form data-act="search" role="search"><label class="search">Search sessions, events, and companies
-      <input id="q" type="search" enterkeyhint="search" value="${esc(ui.q)}" autocomplete="off">
-    </label></form>
+    <form data-act="search" role="search" class="searchbox">
+      ${ico('search')}
+      <input id="q" type="search" enterkeyhint="search" value="${esc(ui.q)}" autocomplete="off" placeholder="Search sessions, events, companies" aria-label="Search sessions, events, and companies">
+      ${ui.q ? '<button type="button" class="clear" data-act="clear-q" aria-label="Clear search">×</button>' : ''}
+    </form>
     ${segBar()}
     ${body}
     ${sourcesFooter()}`;
 }
 
 function viewNow() {
-  const agreed = session ? agreedEvents().filter(e => isRunning(e)) : [];
   return `<h1>Now / Next</h1>${viewAgendaNow()}
-    ${session ? `<h2>Agreed right now</h2>${agreed.length ? agreed.map(e => {
-      const going = goingTo(e.id);
-      return `<div class="card"><div class="name">${esc(e.title)}</div><p class="muted">${eventLine(e)}</p><p>Going: ${going.length ? going.map(personName).map(esc).join(', ') : 'No one yet'}</p></div>`;
-    }).join('') : '<p>No agreed event is running now.</p>'}` : '<p class="muted"><a href="#signin">Sign in</a> to see the group’s agreed list.</p>'}`;
+    ${session ? '' : '<p class="hint"><a href="#signin">Join</a> to see the group’s agreed plan.</p>'}`;
 }
 
 function goingButton(e) {
   const on = isGoing(session.person_id, e.id);
-  return `<button data-act="attend" data-id="${esc(e.id)}" data-on="${on ? 1 : 0}" class="${on ? 'on' : ''}">${on ? 'Going' : 'Mark going'}</button>`;
+  return `<button data-act="attend" data-id="${esc(e.id)}" data-on="${on ? 1 : 0}" class="sm ${on ? 'on' : ''}" aria-pressed="${on ? 'true' : 'false'}">${on ? `${ico('check')}<span>Going</span>` : 'Mark going'}</button>`;
 }
 function dayTabs(days, cur, act) {
   return dayButtons(days, cur, act);
@@ -689,26 +784,25 @@ function viewSchedule() {
   if (ui.addOpen) {
     const day = ui.addDay || days[0];
     const agreedIds = new Set(cache?.data.agreed.map(a => a.event_id));
-    return `<div class="top"><h1>Add event</h1><button data-act="addclose">Done</button></div>
+    return `<div class="page-head"><h1>Add event</h1><button class="sm primary" data-act="addclose">Done</button></div>
       <p class="muted">Student and Premiere events only, through Thu Nov 5 at noon.</p>
       ${dayTabs(days, day, 'addday')}
       ${schedule.filter(e => e.day === day).map(e => `<div class="row">
-        <div>${esc(e.title)}</div><p class="muted">${eventLine(e)}</p>
-        ${agreedIds.has(e.id) ? '<p class="muted">Agreed</p>' : `<button data-act="add" data-id="${esc(e.id)}">Add</button>`}
+        <div class="top"><div><div class="name">${esc(e.title)}</div><p class="muted">${eventLine(e)}</p></div>
+        ${agreedIds.has(e.id) ? `<span class="badge live">Added</span>` : `<button class="sm" data-act="add" data-id="${esc(e.id)}">${ico('plus')}<span>Add</span></button>`}</div>
       </div>`).join('')}`;
   }
   const evs = agreedEvents();
   const byDay = days.map(d => [d, evs.filter(e => e.day === d)]).filter(([, l]) => l.length);
-  return `<div class="top"><h1>Agreed schedule</h1><button class="primary" data-act="addopen">Add event</button></div>
-    <p class="muted">This is the group list. The full week, stars, and conflicts are on <a href="#guide">Guide</a>.</p>
-    ${byDay.length ? '' : '<p>No agreed events yet.</p>'}
+  return `<div class="page-head"><h1>Group plan</h1><button class="sm primary" data-act="addopen">${ico('plus')}<span>Add event</span></button></div>
+    <p class="lead">The events the group agreed on. Your personal stars live in <a href="#guide">Guide</a> › My schedule.</p>
+    ${byDay.length ? '' : emptyBox('No agreed events yet. Tap Add event to start the plan.')}
     ${byDay.map(([d, l]) => `<h2>${fmtDay(d)}</h2>` + l.map(e => {
       const going = goingTo(e.id);
       return `<div class="row">
-        <div class="name">${esc(e.title)}</div>
-        <p class="muted">${eventLine(e)}${isRunning(e) ? ' · <b>Now</b>' : ''}</p>
-        <p class="muted">Going: ${going.length ? going.map(personName).map(esc).join(', ') : 'No one yet'}</p>
-        ${goingButton(e)}
+        <div class="top"><div class="name">${esc(e.title)}</div>${isRunning(e) ? '<span class="badges"><span class="badge live">Now</span></span>' : ''}</div>
+        <div class="meta"><span>${eventLine(e)}</span><span>Going: ${going.length ? going.map(personName).map(esc).join(', ') : 'No one yet'}</span></div>
+        <div class="actions">${goingButton(e)}${roomForEvent(e) ? `<button class="sm" data-act="goto-room" data-id="${esc(roomForEvent(e))}">${ico('map')}<span>Map</span></button>` : ''}</div>
       </div>`;
     }).join('')).join('')}`;
 }
@@ -734,24 +828,26 @@ function viewMap() {
   const drawn = rooms.filter(r => r.level === lv && r.x != null && r.y != null);
   let body;
   if (!drawn.length) {
-    body = `<p class="muted">${lv === 'none' ? 'These names are not placed on a floor.' : 'No drawn rooms on this level.'}</p>`;
+    body = `<p class="muted">${lv === 'none' ? 'These names are not placed on a floor. Tap one to see who is there.' : 'No drawn rooms on this level.'}</p>`;
   } else {
     const h = Math.max(...drawn.map(r => r.y + r.h)) + 12;
-    body = `<svg viewBox="0 0 360 ${h}" role="img" aria-label="${lv === 'none' ? 'Off plan' : 'Level ' + lv} schematic">
+    body = `<div class="map-wrap"><svg viewBox="0 0 360 ${h}" role="img" aria-label="${lv === 'none' ? 'Off plan' : 'Level ' + lv} schematic">
       ${drawn.map(r => {
         const here = peopleIn(r.id);
         const n = here.length;
         const pin = here.some(s => s.meet_pin);
         const lines = wrapLabel(r.short, Math.max(8, Math.floor(r.w / 6.2)));
         return `<g>
-          <rect class="room ${r.certainty === 'approximate' ? 'approx' : ''} ${ui.mapRoom === r.id ? 'sel' : ''}" x="${r.x}" y="${r.y}" width="${r.w}" height="${r.h}" rx="4" data-act="room" data-id="${esc(r.id)}"></rect>
+          <rect class="room ${r.certainty === 'approximate' ? 'approx' : ''} ${n ? 'has' : ''} ${ui.mapRoom === r.id ? 'sel' : ''}" x="${r.x}" y="${r.y}" width="${r.w}" height="${r.h}" rx="4" data-act="room" data-id="${esc(r.id)}"><title>${esc(r.short)}</title></rect>
           ${lines.map((w, i) => `<text x="${r.x + 6}" y="${r.y + 16 + i * 13}">${esc(w)}</text>`).join('')}
           ${n ? `<circle class="count" cx="${r.x + r.w - 14}" cy="${r.y + r.h - 14}" r="10"></circle>
             <text class="count-text" x="${r.x + r.w - 14}" y="${r.y + r.h - 10}" text-anchor="middle">${n}</text>` : ''}
           ${pin ? `<circle class="pin" cx="${r.x + 14}" cy="${r.y + r.h - 14}" r="6"></circle>` : ''}
         </g>`;
       }).join('')}
-    </svg>`;
+    </svg>
+    <div class="map-legend"><span><i></i>On GRB plan</span><span><i class="d"></i>Approximate</span><span><i class="c"></i>People here</span><span><i class="p"></i>Meet pin</span></div></div>
+    <p class="muted">Tap a room to see who is there or drop a meet pin.</p>`;
   }
   const loose = (cache?.data?.status || []).filter(s => {
     if (String(s.room_id).startsWith('booth-')) return false;
@@ -764,12 +860,12 @@ function viewMap() {
     <p class="muted">Numbers come from recruiter and company posts. There is no booth coordinate on the GRB plan.</p>
     <div class="grid">${booths.map(b => {
       const who = (cache?.data?.status || []).filter(s => s.room_id === b.roomId);
-      return `<button class="offplan ${who.length ? 'sel' : ''}" data-act="room" data-id="${esc(b.roomId)}">Booth ${esc(b.num)} · ${esc(b.companies.join(', '))}${who.length ? ` (${who.length})` : ''}</button>`;
+      return `<button class="offplan ${who.length ? 'has' : ''} ${ui.mapRoom === b.roomId ? 'sel' : ''}" data-act="room" data-id="${esc(b.roomId)}"><strong>Booth ${esc(b.num)}</strong>${who.length ? ` · ${who.length} here` : ''}<br><span class="muted">${esc(b.companies.join(', '))}</span></button>`;
     }).join('')}</div>` : '';
   const extraRooms = rooms.filter(r => r.level === lv && r.x == null && !String(r.id).startsWith('level-'));
-  const extra = extraRooms.length ? `<div class="grid">${extraRooms.map(r => {
+  const extra = extraRooms.length ? `${drawn.length ? '<h2>Not drawn</h2>' : ''}<div class="grid">${extraRooms.map(r => {
     const n = peopleIn(r.id).length;
-    return `<button class="offplan ${ui.mapRoom === r.id ? 'sel' : ''}" data-act="room" data-id="${esc(r.id)}">${esc(r.short)}${n ? ` (${n})` : ''}</button>`;
+    return `<button class="offplan ${n ? 'has' : ''} ${ui.mapRoom === r.id ? 'sel' : ''}" data-act="room" data-id="${esc(r.id)}">${esc(r.short)}${n ? ` · ${n} here` : ''}</button>`;
   }).join('')}</div>` : '';
   let panel = '';
   const r = ui.mapRoom && (roomById(ui.mapRoom) || (String(ui.mapRoom).startsWith('booth-') ? {
@@ -781,39 +877,84 @@ function viewMap() {
     const evs = agreedEvents().filter(e => isRunning(e) && roomForEvent(e) === r.id);
     const mine = session && statusOf(session.person_id);
     const pinned = mine && mine.room_id === r.id && mine.meet_pin;
-    panel = `<div class="card">
-      <div class="name">${esc(r.label || r.short)}</div>
+    const imHere = mine && mine.room_id === r.id;
+    const anim = ui._sheet !== r.id ? '' : ' style="animation:none"';
+    ui._sheet = r.id;
+    panel = `<div class="sheet-backdrop" data-act="room-close"${anim}></div>
+    <div class="sheet" role="dialog" aria-modal="true" aria-label="${esc(r.label || r.short)}"${anim}>
+      <div class="grab" aria-hidden="true"></div>
+      <div class="top"><div class="name">${esc(r.label || r.short)}</div><button type="button" class="close" data-act="room-close" aria-label="Close">×</button></div>
       ${r.note ? `<p class="muted">${esc(r.note)}</p>` : ''}
-      <p>Agreed event now: ${evs.length ? evs.map(e => esc(e.title)).join('; ') : 'None'}</p>
-      ${here.length ? here.map(s => `<div class="row"><div class="top"><span>${esc(personName(s.person_id))}</span><span>${badge(s)}</span></div><p class="muted">Updated ${fmtWhen(Date.parse(s.updated_at))}</p>${phoneLinks(cache.data.people.find(p => p.id === s.person_id))}</div>`).join('') : '<p>No one checked in here.</p>'}
-      ${loose.length && !here.length ? '' : ''}
-      ${session ? `<button data-act="meet" data-id="${esc(r.id)}" data-on="${pinned ? 1 : 0}">${pinned ? 'Clear meet pin' : 'Meet me here'}</button>` : '<p class="muted"><a href="#signin">Sign in</a> to drop a meet pin.</p>'}
+      ${evs.length ? `<p class="desc"><strong>Group plan now:</strong> ${evs.map(e => esc(e.title)).join('; ')}</p>` : ''}
+      <h2>Here now <span class="count-pill">${here.length}</span></h2>
+      ${here.length ? here.map(s => `<div class="sub-row"><div class="top"><span class="name">${esc(personName(s.person_id))}</span>${badge(s)}</div><p class="muted">Updated ${esc(ago(Date.parse(s.updated_at)))}</p>${phoneLinks(cache.data.people.find(p => p.id === s.person_id))}</div>`).join('') : '<p class="muted">No one checked in here.</p>'}
+      ${session ? `<div class="btn-row">
+        <button data-act="checkin-room" data-id="${esc(r.id)}" class="${imHere ? 'on' : ''}" ${imHere ? 'disabled' : ''}>${ico('pin')}<span>${imHere ? 'You are here' : "I'm here"}</span></button>
+        <button data-act="meet" data-id="${esc(r.id)}" data-on="${pinned ? 1 : 0}" class="${pinned ? '' : 'primary'}">${pinned ? 'Clear meet pin' : 'Meet me here'}</button>
+      </div>` : '<p class="hint"><a href="#signin">Join</a> to check in or drop a meet pin.</p>'}
     </div>`;
-  }
+  } else ui._sheet = null;
   const looseHtml = loose.length ? `<h2>Checked in, not inside a drawn room</h2>` + loose.map(s =>
-    `<div class="row"><div class="top"><span>${esc(personName(s.person_id))}</span><span>${badge(s)}</span></div><p>${esc(placeText(s))}</p><p class="muted">Updated ${fmtWhen(Date.parse(s.updated_at))}</p></div>`).join('') : '';
+    `<div class="row"><div class="top"><span class="name">${esc(personName(s.person_id))}</span>${badge(s)}</div><p>${esc(placeText(s))}</p><p class="muted">Updated ${esc(ago(Date.parse(s.updated_at)))}</p></div>`).join('') : '';
+  const levelNote = lv === '1' ? 'Halls are drawn A to E in the order on the GRB plan. That is not a compass heading.'
+    : lv === '2' ? 'Avenida is balcony C South. McKinney is C North. Walker is the balcony lettered B. Conference rooms 212–215 are also on this level and are not drawn.'
+    : lv === '3' ? 'Halls, the ballroom, and meeting rooms are grouped by type. Adjacency on this drawing is not measured.' : '';
   return `<h1>Map</h1>
-    <p class="muted">George R. Brown Convention Center. Schematic, not to scale. Solid rooms are named on the GRB floor plan. Dashed rooms are AfroTech names and their position is approximate. <a href="https://www.grbhouston.com/planners/floor-plans/" target="_blank" rel="noopener noreferrer">Official plans</a>.</p>
-    <p class="muted">${FLOOR_HONEST}</p>
     <div class="seg">${levels.map(([k, l]) => `<button data-act="level" data-level="${k}" class="${k === lv ? 'on' : ''}">${l}</button>`).join('')}</div>
-    ${lv === '1' ? '<p class="muted">Halls are drawn A to E in the order on the GRB plan. That is not a compass heading.</p>' : ''}
-    ${lv === '2' ? '<p class="muted">Avenida is balcony C South. McKinney is C North. Walker is the balcony lettered B. Conference rooms 212–215 are also on this level and are not drawn.</p>' : ''}
-    ${lv === '3' ? '<p class="muted">Halls, the ballroom, and meeting rooms are grouped by type. Adjacency on this drawing is not measured.</p>' : ''}
+    <details class="about"><summary>About this map</summary>
+      <p>George R. Brown Convention Center. Schematic, not to scale. Solid rooms are named on the GRB floor plan. Dashed rooms are AfroTech names and their position is approximate. <a href="https://www.grbhouston.com/planners/floor-plans/" target="_blank" rel="noopener noreferrer">Official plans</a>.</p>
+      <p>${FLOOR_HONEST}</p>
+      ${levelNote ? `<p>${levelNote}</p>` : ''}
+    </details>
     ${body}${extra}${boothList}${looseHtml}${panel}`;
 }
 
 function roomChoices(selected) {
   const groups = [['1', 'Level 1'], ['2', 'Level 2'], ['3', 'Level 3'], ['none', 'Other']];
-  return `<select id="room" aria-label="Room"><option value="">Pick a room</option>${groups.map(([k, l]) =>
+  return `<label class="field"><span>Room</span><select id="room" aria-label="Room"><option value="">Pick a room</option>${groups.map(([k, l]) =>
     `<optgroup label="${l}">${rooms.filter(r => r.level === k).map(r => {
       const tag = r.certainty === 'approximate' ? ' (approx.)' : r.certainty === 'unknown' ? ' (floor unknown)' : '';
       return `<option value="${esc(r.id)}" ${selected === r.id ? 'selected' : ''}>${esc(r.short)}${tag}</option>`;
-    }).join('')}</optgroup>`).join('')}</select>`;
+    }).join('')}</optgroup>`).join('')}</select></label>`;
 }
 function altHint() {
   if (live.watchId === null && live.altitude == null) return '';
   if (live.altitude == null) return 'This phone did not share altitude. That is common indoors. Confirm the level yourself.';
   return `Phone altitude about ${Math.round(live.altitude)} m. Hint only, not a floor.`;
+}
+function statusCard() {
+  const s = statusOf(session.person_id);
+  const sharing = live.watchId !== null;
+  return `<div class="card status-card">
+    <div class="top"><span class="muted">My spot</span>${badge(s)}</div>
+    <p class="place-big">${s ? esc(placeText(s)) : 'No check-in yet'}</p>
+    <p class="muted">${s ? `Updated ${esc(ago(Date.parse(s.updated_at)))}` : 'Pick a level or room below.'}</p>
+    <div class="btn-row">
+      <button data-act="still" ${s ? '' : 'disabled'}>${ico('refresh')}<span>Still here</span></button>
+      <button data-act="live" class="${sharing ? 'on' : ''}" aria-pressed="${sharing ? 'true' : 'false'}">${ico('live')}<span>${sharing ? 'Stop sharing' : 'Share live'}</span></button>
+    </div>
+    ${altHint() ? `<p class="muted">${esc(altHint())}</p>` : ''}
+    ${live.error ? `<p class="err">${esc(live.error)}</p>` : ''}
+  </div>`;
+}
+function checkinCard() {
+  const s = statusOf(session.person_id);
+  const curLevel = s?.level || roomById(s?.room_id)?.level || '';
+  return `<div class="card">
+    <div class="name">Check in</div>
+    <p class="muted">Set your floor, then your room if you know it.</p>
+    <div class="seg">
+      ${['1', '2', '3'].map(l => `<button data-act="set-level" data-level="${l}" class="${curLevel === l ? 'on' : ''}">Level ${l}</button>`).join('')}
+    </div>
+    ${roomChoices(s?.room_id)}
+    <form data-act="booth" class="inline-form">
+      <label class="field"><span>Booth number</span>
+        <input id="booth" inputmode="numeric" placeholder="e.g. 812" autocomplete="off" enterkeyhint="done">
+      </label>
+      <button>Check in</button>
+    </form>
+    <details class="about"><summary>Why can't GPS find my floor?</summary><p>${FLOOR_HONEST}</p><p>Live sharing works only while this page is open. The server stores “At GRB” or “Away from GRB”, not a coordinate.</p></details>
+  </div>`;
 }
 function viewCrew() {
   if (!session) return viewSignIn();
@@ -824,101 +965,71 @@ function viewCrew() {
   const link = code ? `${location.origin}${location.pathname}#pair=${code}` : '';
   const ids = cache?.data?.paired_ids || [];
   const paired = ids.map(id => cache.data.people.find(p => p.id === id)).filter(Boolean);
-  const s = statusOf(session.person_id);
   const locals = LOCAL_NAMES.map(name => {
     const n = localPhone(name);
     return n ? { label: name === 'David' ? 'David (Timeless)' : name, phone: n } : null;
   }).filter(Boolean);
   const wait = pendingPair();
   return `<h1>Crew</h1>
-    <p class="muted">${FLOOR_HONEST} Sharing stays on only while this page is open and you leave it on.</p>
+    <p class="lead">Pair with friends to see each other’s number and call or text from the app.</p>
     ${crewReady ? '' : '<p class="conflict">Pairing is not on this server yet. Run supabase/crew.sql in the Supabase SQL editor. The guide, map, and group tracker still work.</p>'}
-    ${wait ? `<div class="card"><p>A pair link is waiting.</p><div class="actions"><button class="primary" data-act="accept-pending">Accept</button><button data-act="dismiss-pair">Not now</button></div></div>` : ''}
-    <h2>Where I am</h2>
-    <p>${badge(s)} ${s ? `<span class="muted">Updated ${fmtWhen(Date.parse(s.updated_at))}</span>` : ''}</p>
-    <p>${s ? esc(placeText(s)) : 'No check-in yet.'}</p>
-    <div class="seg">
-      <button data-act="set-level" data-level="1">Level 1</button>
-      <button data-act="set-level" data-level="2">Level 2</button>
-      <button data-act="set-level" data-level="3">Level 3</button>
+    ${wait ? `<div class="card"><p><strong>A pair link is waiting.</strong></p><div class="btn-row"><button class="primary" data-act="accept-pending">Accept</button><button data-act="dismiss-pair">Not now</button></div></div>` : ''}
+    <div class="card">
+      <div class="name">Your pair code</div>
+      ${code ? `<p class="codebig">${esc(code)}</p><p class="linkline">${esc(link)}</p>
+        <div class="actions"><button class="sm primary" data-act="share-pair">${ico('share')}<span>Share</span></button><button class="sm" data-act="copy-pair">${ico('copy')}<span>Copy link</span></button><button class="sm ghost" data-act="make-pair">New code</button></div>`
+        : '<p class="muted">Make a link and send it to a friend.</p><button class="primary block" data-act="make-pair">Create a pair link</button>'}
+      <p class="muted">A new link turns the old one off. Anyone with the link can pair until it expires (7 days).</p>
     </div>
-    ${roomChoices(s?.room_id)}
-    <form data-act="booth">
-      <label class="search">Booth number
-        <input id="booth" inputmode="numeric" placeholder="812" autocomplete="off">
-      </label>
-      <button>Check in at this booth</button>
-    </form>
-    <p class="actions"><button data-act="still" ${s ? '' : 'disabled'}>Still here</button>
-      <button data-act="live" class="${live.watchId !== null ? 'on' : ''}">${live.watchId !== null ? 'Stop sharing location' : 'Share live location'}</button></p>
-    ${altHint() ? `<p class="muted">${esc(altHint())}</p>` : ''}
-    ${live.error ? `<p class="err">${esc(live.error)}</p>` : ''}
-    <h2>Pair</h2>
-    <p class="muted">Send a link or read the code. The other person accepts. You can then see each other’s number. A new link turns the old one off. Anyone with the link can pair until it expires (7 days).</p>
-    ${code ? `<p class="codebig">${esc(code)}</p><p class="muted">${esc(link)}</p>
-      <div class="actions"><button data-act="copy-pair">Copy link</button><button data-act="share-pair">Share</button><button data-act="make-pair">New code</button></div>`
-      : '<p><button class="primary" data-act="make-pair">Create a pair link</button></p>'}
-    <form data-act="pair">
-      <label class="search">Their code
-        <input id="pair-in" autocomplete="off" placeholder="paste code">
-      </label>
-      <button>Accept code</button>
-    </form>
-    <h2>My number</h2>
-    <form data-act="phone">
-      <label class="search">Phone
-        <input id="phone" type="tel" autocomplete="tel" inputmode="tel" value="${esc(phoneShown)}" placeholder="+1 555 0100">
-      </label>
-      <button class="primary">Save number</button>
-    </form>
-    <p class="muted">Stored for people you pair with. It is not in the public repo. Leave it blank and save to clear it.</p>
-    <h2>Paired</h2>
-    ${paired.length ? paired.map(p => {
-      const st = statusOf(p.id);
-      return `<div class="row">
-        <div class="top"><span class="name">${esc(p.name)}</span><span>${badge(st)}</span></div>
-        <p>${st ? esc(placeText(st)) : 'No check-in yet'}</p>
-        <p class="muted">${st ? `Updated ${fmtWhen(Date.parse(st.updated_at))}` : ''}</p>
-        ${phoneLinks(p)}
-        <button data-act="unpair" data-id="${p.id}">Unpair</button>
-      </div>`;
-    }).join('') : '<p>No one paired yet.</p>'}
+    <div class="card">
+      <div class="name">Got a friend’s code?</div>
+      <form data-act="pair" class="inline-form">
+        <label class="field"><span class="muted">Their code</span>
+          <input id="pair-in" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Paste code" enterkeyhint="done">
+        </label>
+        <button class="primary">Accept</button>
+      </form>
+    </div>
+    <div class="card">
+      <div class="name">My number</div>
+      <form data-act="phone" class="inline-form">
+        <label class="field"><span class="muted">Phone</span>
+          <input id="phone" type="tel" autocomplete="tel" inputmode="tel" value="${esc(phoneShown)}" placeholder="+1 555 0100" enterkeyhint="done">
+        </label>
+        <button class="primary">Save</button>
+      </form>
+      <p class="muted">Only people you pair with can see it. Leave it blank and save to clear it.</p>
+    </div>
+    <h2>Paired <span class="count-pill">${paired.length}</span></h2>
+    ${paired.length ? paired.map(p => personRow(p, `<div class="actions"><button class="sm ghost" data-act="unpair" data-id="${p.id}">Unpair</button></div>`)).join('') : emptyBox('No one paired yet.')}
     ${locals.length ? `<h2>Private list on this device</h2><p class="muted">From config.local.js. These numbers stay on this device. They are not uploaded.</p>${locals.map(row => {
       const href = telHref(row.phone);
-      return `<div class="row"><div class="name">${esc(row.label)}</div><div class="actions"><a class="btn" href="tel:${esc(href)}">Call</a><a class="btn" href="sms:${esc(href)}">Text</a></div></div>`;
+      return `<div class="row"><div class="name">${esc(row.label)}</div>${callText(href)}</div>`;
     }).join('')}` : ''}`;
 }
 
 function viewMe() {
-  const me = session.person_id;
-  const s = statusOf(me);
   const today = chicagoDay(now());
   const todays = agreedEvents().filter(e => e.day === today);
   const notifyOk = typeof Notification !== 'undefined' && Notification.permission === 'granted';
-  return `<h1>My status</h1>
-    <p>${badge(s)} ${s ? `<span class="muted">Updated ${fmtWhen(Date.parse(s.updated_at))}</span>` : ''}</p>
-    ${s ? `<p>${esc(placeText(s))}</p>` : ''}
-    <h2>Where am I?</h2>
-    <p class="muted">${FLOOR_HONEST}</p>
-    ${roomChoices(s?.room_id)}
-    <p><button data-act="still" ${s ? '' : 'disabled'}>Still here</button></p>
-    <h2>Live location</h2>
-    <p class="muted">Only while this page is open and this is on. The server stores “At GRB” or “Away from GRB”, not a coordinate. Your room is still the one you pick.</p>
-    <button data-act="live" class="${live.watchId !== null ? 'on' : ''}">${live.watchId !== null ? 'Stop sharing location' : 'Share live location'}</button>
-    ${altHint() ? `<p class="muted">${esc(altHint())}</p>` : ''}
-    ${live.error ? `<p class="err">${esc(live.error)}</p>` : ''}
+  const alertsOn = notifyOn && notifyOk;
+  return `<div class="page-head"><h1>Me</h1><span class="muted">${esc(session.name)}${session.name === 'David' ? ' (Timeless)' : ''}</span></div>
+    ${statusCard()}
+    ${checkinCard()}
     <h2>My events today</h2>
-    ${todays.length ? todays.map(e => `<div class="row"><div>${esc(e.title)}</div><p class="muted">${eventLine(e)}</p>${goingButton(e)}</div>`).join('') : '<p>No agreed events today.</p>'}
-    <p class="muted">Phone, pairing, and booth check-in are on <a href="#crew">Crew</a>.</p>
-    <h2>App on your phone</h2>
-    <p class="muted">${isStandalone() ? 'Running installed.' : 'Add to Home Screen for full screen and quicker access.'}</p>
-    <p class="actions"><button type="button" data-act="install-pwa">Add to Home Screen</button></p>
-    <h2>Check-in alerts</h2>
-    <p class="muted">Ping when someone updates their location (best when the app is installed or in the background).</p>
-    <p class="actions"><button type="button" data-act="notify-toggle" class="${notifyOn && notifyOk ? 'on' : ''}">${notifyOn && notifyOk ? 'Alerts on' : 'Turn on alerts'}</button></p>
-    <h2>Joined as ${esc(session.name)}${session.name === 'David' ? ' (Timeless)' : ''}</h2>
-    <p class="muted">This device ID is stored with your session so duplicate names are easier to spot. Log out before handing your phone to someone else.</p>
-    <button type="button" data-act="signout">Log out</button>`;
+    ${todays.length ? todays.map(e => `<div class="row"><div class="name">${esc(e.title)}</div><p class="muted">${eventLine(e)}</p><div class="actions">${goingButton(e)}</div></div>`).join('') : emptyBox('No agreed events today.')}
+    <a class="list-link" href="#crew">${ico('users')}<span class="grow"><strong>Crew and pairing</strong><small>Share numbers to call and text</small></span><span class="chev" aria-hidden="true">›</span></a>
+    <h2>Settings</h2>
+    <div class="card">
+      <div class="top"><div><strong>Check-in alerts</strong><p class="muted">Ping when someone updates their spot.</p></div>
+        <button type="button" class="sm ${alertsOn ? 'on' : ''}" data-act="notify-toggle" aria-pressed="${alertsOn ? 'true' : 'false'}">${alertsOn ? 'On' : 'Turn on'}</button></div>
+      ${isStandalone() ? '' : `<div class="top sub-row"><div><strong>Add to Home Screen</strong><p class="muted">Full screen and quicker check-ins.</p></div>
+        <button type="button" class="sm" data-act="install-pwa">Install</button></div>`}
+    </div>
+    <div class="card">
+      <p class="muted">Joined as <strong>${esc(session.name)}</strong>. Log out before handing your phone to someone else.</p>
+      <button type="button" class="block" data-act="signout">Log out</button>
+    </div>`;
 }
 
 const VIEWS = { guide: viewGuide, now: viewNow, map: viewMap, schedule: viewSchedule, crew: viewCrew, friends: viewFriends, me: viewMe, signin: viewSignIn };
@@ -934,14 +1045,18 @@ function setTabs() {
   const signed = !!session;
   document.body.classList.toggle('signed-in', signed);
   const show = signed
-    ? ['guide', 'now', 'map', 'schedule', 'crew', 'friends', 'me']
-    : ['guide', 'now', 'map', 'signin'];
+    ? ['friends', 'guide', 'map', 'schedule', 'me']
+    : ['guide', 'map', 'signin'];
   $tabs.hidden = false;
   const r = route();
+  const active = { now: 'guide', crew: signed ? 'friends' : 'signin' }[r] || r;
+  document.body.classList.toggle('no-hero', signed || !(r === 'guide' || r === 'signin' || r === 'now'));
   $tabs.querySelectorAll('a').forEach(a => {
     const id = a.getAttribute('href').slice(1);
     a.hidden = !show.includes(id);
-    a.classList.toggle('on', id === r);
+    const on = id === active;
+    a.classList.toggle('on', on);
+    if (on) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current');
   });
 }
 function snapshotFields(active) {
@@ -953,6 +1068,10 @@ function snapshotFields(active) {
   if (code) ui.code = code.value;
   const name = document.getElementById('name');
   if (name) ui.signName = name.value;
+  ui._drafts = {};
+  ['booth', 'pair-in'].forEach(id => { const el = document.getElementById(id); if (el && el.value) ui._drafts[id] = el.value; });
+  ui._chips = {};
+  $view.querySelectorAll('.chips[data-chips]').forEach(el => { ui._chips[el.dataset.chips] = el.scrollLeft; });
   ui._keep = null;
   ui._caret = null;
   if (active && active.id && active.matches && active.matches('input, textarea')) {
@@ -967,12 +1086,24 @@ function render() {
   snapshotFields(active);
   setTabs();
   const r = route();
-  const banner = `${ui.msg ? `<p class="err">${esc(ui.msg)}</p>` : ''}${ui.note ? `<p class="note">${esc(ui.note)}</p>` : ''}`;
-  $view.innerHTML = banner + VIEWS[r]();
-  if (ui._route !== r) {
-    ui._route = r;
-    $tabs.querySelector('a.on')?.scrollIntoView({ inline: 'center', block: 'nearest' });
+  const sameRoute = ui._route === r;
+  ui._route = r;
+  $view.innerHTML = VIEWS[r]();
+  for (const [id, v] of Object.entries(ui._drafts || {})) {
+    const el = document.getElementById(id);
+    if (el && !el.value) el.value = v;
   }
+  $view.querySelectorAll('.chips[data-chips]').forEach(el => {
+    const saved = sameRoute ? ui._chips?.[el.dataset.chips] : undefined;
+    const on = el.querySelector('.on');
+    if (saved != null) el.scrollLeft = saved;
+    if (on) {
+      const l = on.offsetLeft - el.offsetLeft, rgt = l + on.offsetWidth;
+      if (l < el.scrollLeft + 16 || rgt > el.scrollLeft + el.clientWidth - 16) el.scrollLeft = l - (el.clientWidth - on.offsetWidth) / 2;
+    }
+  });
+  document.body.classList.toggle('sheet-open', !!$view.querySelector('.sheet'));
+  renderToast();
   if (ui._keep) {
     const el = document.getElementById(ui._keep);
     if (el) {
@@ -997,6 +1128,7 @@ function setCheckin(roomId, extra = {}) {
   const room = roomById(roomId);
   const level = extra.level || (room && room.level !== 'none' ? room.level : null);
   const label = extra.label || room?.short || roomName(roomId);
+  ui.note = extra.toast || `Checked in: ${label}`;
   queue('set_checkin', {
     p_room: roomId,
     p_mode: live.watchId !== null ? 'live' : 'manual',
@@ -1080,7 +1212,18 @@ document.addEventListener('click', e => {
   if (!el || el.tagName === 'FORM') return;
   const act = el.dataset.act;
   if (act !== 'pick') { ui.msg = ''; ui.note = ''; }
-  if (act === 'pick') { ui.signName = el.dataset.name; render(); }
+  if (act === 'pick') {
+    ui.signName = el.dataset.name;
+    const nameEl = document.getElementById('name');
+    if (nameEl) nameEl.value = el.dataset.name;
+    render();
+    const code = document.getElementById('code');
+    if (code && !code.value) code.focus();
+  }
+  else if (act === 'toast-close') renderToast();
+  else if (act === 'clear-q') { ui.q = ''; const q = document.getElementById('q'); if (q) q.value = ''; render(); document.getElementById('q')?.focus(); }
+  else if (act === 'room-close') { ui.mapRoom = null; render(); }
+  else if (act === 'checkin-room') setCheckin(el.dataset.id, { meet: false });
   else if (act === 'attend') queue('set_attendance', { p_event: el.dataset.id, p_attending: el.dataset.on !== '1' });
   else if (act === 'add') queue('add_agreed', { p_event: el.dataset.id });
   else if (act === 'addopen') { ui.addOpen = true; render(); scrollTo(0, 0); }
@@ -1090,7 +1233,7 @@ document.addEventListener('click', e => {
   else if (act === 'room') { ui.mapRoom = el.dataset.id; render(); }
   else if (act === 'still') {
     const s = statusOf(session.person_id);
-    if (s) setCheckin(s.room_id, { meet: !!s.meet_pin, level: s.level, label: s.place_label });
+    if (s) setCheckin(s.room_id, { meet: !!s.meet_pin, level: s.level, label: s.place_label, toast: 'Still here. Your time is updated.' });
   }
   else if (act === 'live') live.watchId !== null ? stopLive() : startLive();
   else if (act === 'signout') signOut(false);
@@ -1099,7 +1242,16 @@ document.addEventListener('click', e => {
   else if (act === 'dismiss-onboard') { save('wa_onboarded', true); render(); }
   else if (act === 'notify-toggle') { askNotify().then(() => render()); }
   else if (act === 'star') toggleStar(el.dataset.key);
-  else if (act === 'seg') { ui.seg = el.dataset.seg; ui.showAll = false; render(); }
+  else if (act === 'seg') {
+    ui.seg = el.dataset.seg; ui.showAll = false; ui.q = '';
+    const q = document.getElementById('q'); if (q) q.value = '';
+    render();
+    const sb = document.querySelector('.searchbox');
+    if (sb) {
+      const top = sb.getBoundingClientRect().bottom + scrollY - document.querySelector('.appbar').offsetHeight;
+      if (scrollY > top) scrollTo(0, top);
+    }
+  }
   else if (act === 'day') { ui.day = el.dataset.day; render(); }
   else if (act === 'evday') { ui.eventDay = el.dataset.day; render(); }
   else if (act === 'foodday') { ui.foodDay = el.dataset.day; render(); }
@@ -1113,7 +1265,7 @@ document.addEventListener('click', e => {
     ui.mapRoom = el.dataset.id;
     ui.mapLevel = room && room.level !== 'none' ? room.level : 'none';
     if (location.hash === '#map') render();
-    else location.hash = '#map';
+    else { ui._keepRoom = true; location.hash = '#map'; }
   }
   else if (act === 'set-level') {
     const level = el.dataset.level;
@@ -1127,6 +1279,7 @@ document.addEventListener('click', e => {
     const on = el.dataset.on === '1';
     const room = roomById(id);
     setCheckin(id, {
+      toast: on ? 'Meet pin cleared.' : `Meet pin dropped at ${room?.short || roomName(id)}.`,
       meet: !on,
       level: room && room.level !== 'none' ? room.level : '1',
       label: room?.short || roomName(id)
@@ -1184,7 +1337,7 @@ document.addEventListener('submit', async e => {
       save('wa_session', session);
       save('wa_last_name', session.name);
       net.ok = true;
-      if (notifyOn) await askNotify();
+      if (notifyOn && 'Notification' in window) await askNotify();
       location.hash = pendingPair() ? '#crew' : '#friends';
       await sync();
     } catch (err) {
@@ -1218,9 +1371,13 @@ document.addEventListener('submit', async e => {
 
 window.addEventListener('hashchange', () => {
   ui.addOpen = false;
+  if (!ui._keepRoom) ui.mapRoom = null;
+  ui._keepRoom = false;
   render();
   scrollTo(0, 0);
-  $tabs.querySelector('a.on')?.scrollIntoView({ inline: 'center', block: 'nearest' });
+});
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && ui.mapRoom && route() === 'map') { ui.mapRoom = null; render(); }
 });
 window.addEventListener('online', sync);
 window.addEventListener('offline', () => { net.ok = false; render(); });
