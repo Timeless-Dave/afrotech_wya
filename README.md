@@ -11,6 +11,9 @@ Times are America/Chicago.
 - **Map.** Level 1 exhibit halls and Grand Lobby, Level 2 balconies, Level 3 ballrooms and meeting rooms. Solid shapes are rooms on the GRB plan. Dashed shapes are AfroTech names whose spot is approximate. Booth numbers are listed, not plotted.
 - **Crew.** Share a link or code, the other person accepts, then you can see each other’s check-in. Each person sets their own level and room or booth. Live location is opt-in, only while the page is open, and stops with one button. **Call** and **Text** use `tel:` and `sms:`.
 - **Friends, Schedule, Me.** Anyone with the link and group code can **Join** with their name (saved on the device until log out). A random device id is stored on the session so duplicate names show as `Name (#id)`. Check-in alerts optional. Phone numbers show only for paired people, plus any numbers in your private `config.local.js`.
+- **Live ribbon.** A ticker under the header shows who checked in where (meet pins first). Tap a name to open that room on the map and tap **I'm here** to join them. The **Live** button pauses it.
+- **Ring.** On Friends, tap people to select them (tap again to unselect), then **Ring**, **Text**, or **Call**. A ring buzzes their phone with a banner and a **Go to** button. Needs `supabase/ring.sql`.
+- **Invite link.** Crew has a **Share invite** link with the group code inside (`?code=`). Opening it saves the code on the phone, so friends only type their name.
 
 ## Phone numbers stay out of git
 
@@ -30,6 +33,7 @@ The example file lists names and empty strings. That is the only phone file that
 3. Run `supabase/events.sql` the same way. This is the agreed-list filter (Student or Premiere, Mon Nov 2 through Thu Nov 5 12:00 PM).
 4. Run `supabase/crew.sql` the same way. This adds pairing, phone numbers, floor check-ins, and meet pins. The guide and the old tracker still load if you skip it; Crew will say the SQL is missing.
 5. Run `supabase/easy.sql` once. This enables **open join** (any display name), device ids on sessions, and duplicate-name hints in the app. Skip only if you already ran it.
+   Then run `supabase/ring.sql` once. This adds **Ring**. Everything else works without it; Ring says the SQL is missing.
 6. In Supabase, open Project Settings → API. Copy the project URL and the publishable (anon) key into `config.js`. Leave `SUPABASE_URL` empty to use the local stand-in from `npm run dev`.
 7. Optionally copy `config.crew.example.js` to `config.local.js` and fill in numbers for your own device.
 8. Push to GitHub and turn on Pages: Settings → Pages → Deploy from branch `main`, folder `/ (root)`.

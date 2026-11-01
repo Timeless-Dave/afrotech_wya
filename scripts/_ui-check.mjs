@@ -86,7 +86,7 @@ await shot(phone, 'mobile_map_off.png');
 await phone.goto(base + '#signin', { waitUntil: 'networkidle0' });
 await phone.type('#name', 'Angel');
 await phone.type('#code', 'test');
-await phone.click('form[data-act="signin"] button');
+await phone.click('form[data-act="signin"] button[type="submit"]');
 await phone.waitForFunction(() => document.body.innerText.includes('Angel') && document.body.innerText.includes('Where are my friends'));
 await shot(phone, 'mobile_friends.png');
 
@@ -110,7 +110,7 @@ await david.setViewport({ width: 390, height: 844, isMobile: true, hasTouch: tru
 await david.goto(base + '#signin', { waitUntil: 'networkidle0' });
 await david.type('#name', 'David');
 await david.type('#code', 'test');
-await david.click('form[data-act="signin"] button');
+await david.click('form[data-act="signin"] button[type="submit"]');
 await david.waitForFunction(() => document.body.innerText.includes('Where are my friends'));
 await david.click('a[href="#crew"]');
 await david.waitForSelector('#pair-in');

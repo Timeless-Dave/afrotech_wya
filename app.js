@@ -43,15 +43,33 @@ let ui = {
   day: null, eventDay: null, foodDay: 'all', addOpen: false, addDay: null,
   mapLevel: '1', mapRoom: null, msg: '', note: '', seg: 'now', q: '',
   studentOnly: false, foodMode: 'all', eventsFood: false, boothsOnly: true, showAll: false,
-  phoneDraft: null, code: '', signName: ''
+  phoneDraft: null, code: '', signName: null, showCode: false, editCode: false,
+  sel: new Set(), ring: null, ribbonPaused: load('wa_ribbon_paused', false)
 };
 let notifyOn = load('wa_notify', true);
 let deferredInstall = null;
 
 (function bootQuery() {
-  const c = new URLSearchParams(location.search).get('code');
-  if (c) ui.code = c;
+  const q = new URLSearchParams(location.search);
+  const c = q.get('code');
+  if (!c) return;
+  ui.code = c;
+  save('wa_group_code', c);
+  // Keep the code out of the address bar so it is not shared by accident.
+  q.delete('code');
+  const rest = q.toString();
+  try { history.replaceState(null, '', location.pathname + (rest ? '?' + rest : '') + location.hash); } catch {}
 })();
+const savedCode = () => ui.code || load('wa_group_code', '') || '';
+function inviteLink() {
+  const c = load('wa_group_code', '');
+  return c ? `${location.origin}${location.pathname}?code=${encodeURIComponent(c)}` : '';
+}
+function listNames(names) {
+  if (names.length <= 1) return names[0] || '';
+  if (names.length > 3) return `${names.slice(0, 2).join(', ')} & ${names.length - 2} more`;
+  return `${names.slice(0, -1).join(', ')} & ${names[names.length - 1]}`;
+}
 
 function clientId() {
   let c = load('wa_client', null);
@@ -67,9 +85,10 @@ function isStandalone() {
 function isIosInstall() {
   return /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
 }
-async function showFriendNotification(title, body, tag) {
-  if (!notifyOn || !('Notification' in window) || Notification.permission !== 'granted') return;
+async function showFriendNotification(title, body, tag, force = false) {
+  if (!(notifyOn || force) || !('Notification' in window) || Notification.permission !== 'granted') return;
   const opts = { body, icon: 'assets/icon-192.png', badge: 'assets/icon-192.png', tag, data: { url: './#friends' } };
+  if (force) { opts.requireInteraction = true; opts.vibrate = [300, 120, 300, 120, 600]; opts.renotify = true; }
   try {
     const reg = await navigator.serviceWorker.ready;
     await reg.showNotification(title, opts);
@@ -170,6 +189,9 @@ const ICONS = {
   refresh: '<path d="M20 11a8 8 0 0 0-14.6-4.5M4 4v4h4M4 13a8 8 0 0 0 14.6 4.5M20 20v-4h-4"/>',
   users: '<path d="M16 19v-1.5a3.5 3.5 0 0 0-3.5-3.5h-5A3.5 3.5 0 0 0 4 17.5V19"/><circle cx="10" cy="7.5" r="3.5"/><path d="M20 19v-1.5a3.5 3.5 0 0 0-2.6-3.4M15.5 4.1a3.5 3.5 0 0 1 0 6.8"/>',
   copy: '<rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V5.5A1.5 1.5 0 0 0 14.5 4h-9A1.5 1.5 0 0 0 4 5.5v9A1.5 1.5 0 0 0 5.5 16H8"/>',
+  bell: '<path d="M6 16V11a6 6 0 0 1 12 0v5l1.5 2h-15z"/><path d="M10 20.5a2 2 0 0 0 4 0"/>',
+  pause: '<path d="M9 5v14M15 5v14"/>',
+  play: '<path d="M7 5v14l11-7z"/>',
   share: '<path d="M12 15V4M8 8l4-4 4 4M5 12v6.5A1.5 1.5 0 0 0 6.5 20h11a1.5 1.5 0 0 0 1.5-1.5V12"/>'
 };
 const ico = name => `<svg class="ico" viewBox="0 0 24 24" aria-hidden="true">${ICONS[name]}</svg>`;
@@ -313,6 +335,7 @@ async function sync() {
     cache = { data, syncedAt: Date.now() };
     save('wa_state', cache);
     net.ok = true; net.error = '';
+    await checkRings(data);
   } catch (e) {
     if (e.auth) { signOut(true); ui.msg = 'Session expired. Join again.'; }
     net.ok = false; net.error = e.message;
@@ -320,6 +343,149 @@ async function sync() {
     syncing = false;
     render();
   }
+}
+
+let ringsOk = true;
+async function checkRings(data) {
+  if (!ringsOk || !session) return;
+  const since = load('wa_ring_seen', null);
+  if (!since) { save('wa_ring_seen', data?.server_time || new Date().toISOString()); return; }
+  try {
+    const list = await api('get_rings', { p_token: session.token, p_since: since });
+    if (!list?.length) return;
+    save('wa_ring_seen', list[list.length - 1].created_at);
+    onRing(list);
+  } catch (e) {
+    if (!e.network && !e.auth && missingFn(e, 'get_rings')) ringsOk = false;
+  }
+}
+function onRing(list) {
+  const from = [...new Set(list.map(r => r.from_id))];
+  ui.ring = { from, at: Date.now() };
+  const names = listNames(from.map(personName));
+  try { navigator.vibrate?.([300, 120, 300, 120, 600]); } catch {}
+  ringTone();
+  if (document.hidden) {
+    const s = from.length === 1 ? statusOf(from[0]) : null;
+    showFriendNotification(`${names} ${from.length > 1 ? 'are' : 'is'} ringing you`, s ? placeText(s) : 'Open the app to find them.', 'ring', true);
+  }
+}
+function ringTone() {
+  try {
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) return;
+    const ctx = ringTone.ctx || (ringTone.ctx = new AC());
+    if (ctx.state === 'suspended') ctx.resume();
+    const t = ctx.currentTime;
+    for (let i = 0; i < 4; i++) {
+      const o = ctx.createOscillator(), g = ctx.createGain();
+      const at = t + i * 0.28;
+      o.type = 'sine';
+      o.frequency.value = i % 2 ? 660 : 880;
+      g.gain.setValueAtTime(0.0001, at);
+      g.gain.exponentialRampToValueAtTime(0.2, at + 0.02);
+      g.gain.exponentialRampToValueAtTime(0.0001, at + 0.24);
+      o.connect(g).connect(ctx.destination);
+      o.start(at);
+      o.stop(at + 0.26);
+    }
+  } catch {}
+}
+async function ringPeople(ids) {
+  ids = ids.filter(id => id !== session?.person_id);
+  if (!ids.length) return;
+  const names = listNames(ids.map(personName));
+  try {
+    const n = await api('send_ring', { p_token: session.token, p_to: ids });
+    ui.note = n ? `Ringing ${names}. Their phone buzzes with an alert.` : `You just rang ${names}. Give it a few seconds.`;
+    ui.sel.clear();
+  } catch (e) {
+    ui.msg = e.network ? 'No connection. Ringing needs a connection.'
+      : missingFn(e, 'send_ring') ? 'Ringing is not on the server yet. Run supabase/ring.sql in Supabase.' : shortErr(e);
+  }
+  render();
+}
+
+const $ribbon = document.getElementById('ribbon');
+const $ringbar = document.getElementById('ringbar');
+const reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+function shortPlace(s) {
+  const id = String(s.room_id || '');
+  if (id.startsWith('level-')) return `Level ${id.slice(6)}`;
+  return s.place_label || roomById(id)?.short || roomName(id);
+}
+function agoShort(t) {
+  const m = Math.round((now() - t) / 60000);
+  return m < 1 ? 'now' : m < 60 ? `${m}m` : `${Math.round(m / 60)}h`;
+}
+function ribbonItems() {
+  if (!cache || !session) return [];
+  const groups = new Map();
+  for (const s of cache.data.status) {
+    if (s.person_id === session.person_id || isStale(s)) continue;
+    const g = groups.get(s.room_id) || { room: s.room_id, ids: [], s, latest: 0, pin: false };
+    g.ids.push(s.person_id);
+    const t = Date.parse(s.updated_at);
+    if (t > g.latest) { g.latest = t; g.s = s; }
+    g.pin = g.pin || !!s.meet_pin;
+    groups.set(s.room_id, g);
+  }
+  return [...groups.values()].sort((a, b) => (b.pin - a.pin) || (b.latest - a.latest));
+}
+function renderRibbon() {
+  if (!$ribbon) return;
+  if (!session || !cache) { $ribbon.hidden = true; ui._ribbonKey = ''; return; }
+  $ribbon.hidden = false;
+  const items = ribbonItems();
+  const one = items.length ? items.map(g => `<button type="button" class="rib-item${g.pin ? ' pin' : ''}" data-act="goto-room" data-id="${esc(g.room)}" title="Open on the map">${g.pin ? ico('pin') : '<i class="dot"></i>'}<b>${esc(listNames(g.ids.map(personName)))}</b><span>${esc(shortPlace(g.s))}${g.pin ? ' · meet here' : ''}</span><em>${esc(agoShort(g.latest))}</em></button>`).join('')
+    : `<a class="rib-item" href="#me"><i class="dot idle"></i><span>No fresh check-ins yet. Tap to share your spot.</span></a>`;
+  const paused = ui.ribbonPaused || reduceMotion;
+  const key = `${one}|${paused}|${innerWidth}`;
+  if (key === ui._ribbonKey) return;
+  ui._ribbonKey = key;
+  const vp = $ribbon.querySelector('.rib-viewport');
+  const track = $ribbon.querySelector('.rib-track');
+  const btn = $ribbon.querySelector('.rib-label');
+  btn.innerHTML = `${ico(paused ? 'play' : 'pause')}<span>Live</span>`;
+  btn.setAttribute('aria-label', paused ? 'Play the live ticker' : 'Pause the live ticker');
+  btn.setAttribute('aria-pressed', paused ? 'true' : 'false');
+  track.innerHTML = `<div class="rib-copy">${one}</div>`;
+  const copyW = track.firstElementChild.scrollWidth;
+  const moving = items.length > 0 && !paused && copyW > vp.clientWidth;
+  if (moving) {
+    track.insertAdjacentHTML('beforeend', `<div class="rib-copy" aria-hidden="true">${one.replace(/<button /g, '<button tabindex="-1" ')}</div>`);
+    track.style.setProperty('--dur', `${Math.max(12, copyW / 45)}s`);
+  }
+  $ribbon.classList.toggle('moving', moving);
+  $ribbon.classList.toggle('paused', paused);
+}
+function syncHeadHeight() {
+  const h = document.querySelector('.appbar')?.offsetHeight;
+  if (h && h !== ui._headH) { ui._headH = h; document.documentElement.style.setProperty('--head-h', h + 'px'); }
+}
+window.addEventListener('resize', () => { ui._ribbonKey = ''; renderRibbon(); syncHeadHeight(); });
+function renderRingbar() {
+  if (!$ringbar) return;
+  const r = ui.ring;
+  if (r && Date.now() - r.at > 10 * 60000) ui.ring = null;
+  if (!ui.ring || !session || !cache) { $ringbar.hidden = true; return; }
+  const people = r.from.map(id => cache.data.people.find(p => p.id === id)).filter(Boolean);
+  if (!people.length) { $ringbar.hidden = true; return; }
+  const first = people[0];
+  const s = statusOf(first.id);
+  const num = people.length === 1 ? numberFor(first) : null;
+  const names = listNames(people.map(p => personName(p.id)));
+  $ringbar.hidden = false;
+  $ringbar.innerHTML = `<div class="ringbar-in">
+      <span class="ring-ico">${ico('bell')}</span>
+      <div class="grow"><strong>${esc(names)} ${people.length > 1 ? 'are' : 'is'} ringing you</strong><small>${s ? esc(placeText(s)) : 'No check-in yet'} · ${esc(ago(r.at))}</small></div>
+    </div>
+    <div class="ringbar-actions">
+      ${s ? `<button type="button" class="sm primary" data-act="goto-room" data-id="${esc(s.room_id)}">${ico('map')}<span>Go to ${people.length > 1 ? 'them' : esc(first.name)}</span></button>` : ''}
+      ${num ? `<a class="btn sm" href="tel:${esc(telHref(num.n))}">${ico('phone')}<span>Call</span></a>` : ''}
+      <button type="button" class="sm" data-act="ring-back">${ico('bell')}<span>Ring back</span></button>
+      <button type="button" class="sm ghost" data-act="ring-dismiss" aria-label="Dismiss">×</button>
+    </div>`;
 }
 
 function renderSync() {
@@ -479,7 +645,17 @@ function toggleStar(key) {
 }
 
 function viewSignIn() {
-  const name = ui.signName || load('wa_last_name', '') || '';
+  const name = ui.signName ?? (load('wa_last_name', '') || '');
+  const known = !!savedCode() && !ui.editCode;
+  const codeField = known
+    ? `<div class="code-ok">${ico('check')}<span>Group code saved on this phone</span><button type="button" class="sm ghost" data-act="edit-code">Change</button></div>`
+    : `<div class="field"><label for="code">Group code</label>
+        <div class="pw">
+          <input id="code" type="${ui.showCode ? 'text' : 'password'}" autocomplete="off" autocapitalize="off" spellcheck="false" required value="${esc(ui.code || '')}" placeholder="From your group chat" enterkeyhint="go">
+          <button type="button" class="pw-toggle" data-act="toggle-code" aria-pressed="${ui.showCode ? 'true' : 'false'}" aria-label="${ui.showCode ? 'Hide' : 'Show'} group code">${ui.showCode ? 'Hide' : 'Show'}</button>
+        </div>
+        <p class="muted">Opened the invite link from your group chat? The code fills in by itself.</p>
+      </div>`;
   const wait = pendingPair() ? '<p class="hint">A pair link is waiting. Join, then accept it on Crew.</p>' : '';
   return `<h1>Join your crew</h1>
     <p class="lead">Use the name your friends know. It stays on this phone until you log out. Add a last initial if your name is common.</p>
@@ -489,13 +665,12 @@ function viewSignIn() {
         <label class="field"><span>Your name</span>
           <input id="name" required autocomplete="nickname" maxlength="40" value="${esc(name)}" placeholder="First name or nickname" enterkeyhint="next">
         </label>
-        <label class="field"><span>Group code</span>
-          <input id="code" type="password" autocomplete="current-password" required value="${esc(ui.code || '')}" placeholder="From your group chat" enterkeyhint="go">
-        </label>
-        <button class="primary block">Continue</button>
+        ${codeField}
+        <button type="submit" class="primary block">Continue</button>
       </form>
     </div>
     <h2>School crew quick pick</h2>
+    <p class="muted">Tap your name. Tap it again to clear it.</p>
     <div class="roster">${ROSTER.map(n => `<button type="button" data-act="pick" data-name="${esc(n)}" class="${n === name ? 'on' : ''}">${esc(n)}</button>`).join('')}</div>`;
 }
 
@@ -522,19 +697,43 @@ function personRow(p, extra = '') {
   evs.forEach(e => goingTo(e.id).forEach(id => { if (id !== p.id) with_.add(id); }));
   const isMe = p.id === session.person_id;
   const live = s && s.mode === 'live' && !stale;
-  return `<div class="row${isMe ? ' me' : ''}">
-    <div class="person">
-      <div class="avatar${live ? ' live' : ''}${!s || stale ? ' stale' : ''}" aria-hidden="true">${esc(initials(p.name))}</div>
+  const sel = ui.sel.has(p.id);
+  const pick = isMe ? '' : ` data-act="sel" data-id="${p.id}" role="button" tabindex="0" aria-pressed="${sel ? 'true' : 'false'}" aria-label="${sel ? 'Unselect' : 'Select'} ${esc(p.name)}"`;
+  return `<div class="row${isMe ? ' me' : ''}${sel ? ' selected' : ''}">
+    <div class="person${isMe ? '' : ' pickable'}"${pick}>
+      <div class="avatar${live ? ' live' : ''}${!s || stale ? ' stale' : ''}" aria-hidden="true">${sel ? `<svg viewBox="0 0 24 24">${ICONS.check}</svg>` : esc(initials(p.name))}</div>
       <div class="person-body">
         <div class="top"><span class="name">${esc(personName(p.id))}${isMe ? ' <span class="muted">(you)</span>' : ''}</span>${badge(s)}</div>
         <p class="place${stale ? ' stale-text' : ''}">${s ? esc(placeText(s)) : 'Not set'}${s?.mode === 'live' && s.live_note ? ` · ${esc(s.live_note)}` : ''}</p>
         ${evs.length ? `<p class="muted">In: ${evs.map(e => esc(e.title)).join('; ')}</p>` : ''}
         ${with_.size ? `<p class="muted">With: ${[...with_].map(personName).map(esc).join(', ')}</p>` : ''}
         ${s ? `<p class="when">Updated ${esc(ago(Date.parse(s.updated_at)))}</p>` : ''}
-        ${isMe ? `<div class="actions"><a class="btn sm" href="#me">${ico('pin')}<span>Update my spot</span></a></div>` : phoneLinks(p)}
-        ${extra}
       </div>
     </div>
+    <div class="person-actions">${isMe ? `<div class="actions"><a class="btn sm" href="#me">${ico('pin')}<span>Update my spot</span></a></div>` : phoneLinks(p)}${extra}</div>
+  </div>`;
+}
+function selBar() {
+  if (!session || !cache) return '';
+  ui.sel.forEach(id => { if (!cache.data.people.some(p => p.id === id)) ui.sel.delete(id); });
+  if (!ui.sel.size) return '';
+  const ppl = [...ui.sel].map(id => cache.data.people.find(p => p.id === id)).filter(Boolean);
+  const nums = ppl.map(numberFor).filter(Boolean).map(x => telHref(x.n)).filter(Boolean);
+  const smsHref = nums.length ? (isIosInstall() ? `sms:/open?addresses=${nums.join(',')}` : `sms:${nums.join(',')}`) : '';
+  const one = ppl.length === 1 && nums.length === 1 ? nums[0] : '';
+  const others = cache.data.people.filter(p => p.id !== session.person_id).length;
+  return `<div class="selbar" role="region" aria-label="Selected people">
+    <div class="selbar-top">
+      <strong>${esc(listNames(ppl.map(p => p.name)))}</strong>
+      ${ui.sel.size < others ? '<button type="button" class="sm ghost" data-act="sel-all">All</button>' : ''}
+      <button type="button" class="sm ghost" data-act="sel-clear">Clear</button>
+    </div>
+    <div class="selbar-actions">
+      <button type="button" class="primary" data-act="ring">${ico('bell')}<span>Ring</span></button>
+      ${smsHref ? `<a class="btn" href="${esc(smsHref)}">${ico('sms')}<span>Text${nums.length < ppl.length ? ` (${nums.length})` : ''}</span></a>` : `<button type="button" disabled title="Pair on Crew to text">${ico('sms')}<span>Text</span></button>`}
+      ${one ? `<a class="btn" href="tel:${esc(one)}">${ico('phone')}<span>Call</span></a>` : ''}
+    </div>
+    ${nums.length < ppl.length ? '<p class="selbar-note">Text and Call need a pairing. Ring works for everyone.</p>' : ''}
   </div>`;
 }
 
@@ -556,8 +755,10 @@ function viewFriends() {
   return `${onboardCard()}${head}
     <p class="lead">${people.length} on the link · ${fresh} checked in recently</p>
     ${warn}
+    ${people.length > 1 && !ui.sel.size ? '<p class="hint">Tap people to select them, then Ring, Text, or Call. Tap again to unselect.</p>' : ''}
     ${people.map(p => personRow(p)).join('')}
-    <p class="muted">Call and Text show up for people you pair with on <a href="#crew">Crew</a>.</p>`;
+    <p class="muted">Call and Text show up for people you pair with on <a href="#crew">Crew</a>.</p>
+    ${selBar()}`;
 }
 
 function eventLine(e) {
@@ -822,6 +1023,34 @@ function wrapLabel(s, n) {
   if (cur) lines.push(cur);
   return lines.slice(0, 5);
 }
+// Re-packs the schematic so each row of rooms is only as tall as its labels need.
+function compactRooms(drawn) {
+  const rows = [...new Set(drawn.map(r => r.y))].sort((a, b) => a - b);
+  const list = [];
+  let y = 6;
+  for (const ry of rows) {
+    const inRow = drawn.filter(r => r.y === ry).map(r => {
+      const badge = peopleIn(r.id).length ? 20 : 0;
+      return { ...r, lines: wrapLabel(r.short.replace(/, approx$/, ''), Math.max(6, Math.floor((r.w - 10 - badge) / 5.5))) };
+    });
+    const h = Math.max(28, ...inRow.map(r => 9 + r.lines.length * 12 + 2), ...inRow.map(r => peopleIn(r.id).some(s => s.meet_pin) && peopleIn(r.id).length ? 36 : 0));
+    inRow.forEach(r => list.push({ ...r, y, h }));
+    y += h + 5;
+  }
+  return { list, height: y + 1 };
+}
+function uniqCompanies(names) {
+  const seen = new Set();
+  return names.filter(c => {
+    const k = c.replace(/\s*\(.*?\)\s*/g, '').replace(/[^a-z0-9]/gi, '').toLowerCase();
+    if (seen.has(k)) return false;
+    seen.add(k);
+    return true;
+  });
+}
+function tile(id, title, sub, n) {
+  return `<button class="tile ${n ? 'has' : ''} ${ui.mapRoom === id ? 'sel' : ''}" data-act="room" data-id="${esc(id)}"><b>${esc(title)}</b>${sub ? `<span>${esc(sub)}</span>` : ''}${n ? `<em>${n}</em>` : ''}</button>`;
+}
 function viewMap() {
   const lv = ui.mapLevel;
   const levels = [['1', 'Level 1'], ['2', 'Level 2'], ['3', 'Level 3'], ['none', 'Off plan']];
@@ -830,19 +1059,19 @@ function viewMap() {
   if (!drawn.length) {
     body = `<p class="muted">${lv === 'none' ? 'These names are not placed on a floor. Tap one to see who is there.' : 'No drawn rooms on this level.'}</p>`;
   } else {
-    const h = Math.max(...drawn.map(r => r.y + r.h)) + 12;
-    body = `<div class="map-wrap"><svg viewBox="0 0 360 ${h}" role="img" aria-label="${lv === 'none' ? 'Off plan' : 'Level ' + lv} schematic">
-      ${drawn.map(r => {
+    const { list, height } = compactRooms(drawn);
+    body = `<div class="map-wrap"><svg viewBox="0 0 360 ${height}" role="img" aria-label="${lv === 'none' ? 'Off plan' : 'Level ' + lv} schematic">
+      ${list.map(r => {
         const here = peopleIn(r.id);
         const n = here.length;
         const pin = here.some(s => s.meet_pin);
-        const lines = wrapLabel(r.short, Math.max(8, Math.floor(r.w / 6.2)));
+        const avail = r.w - 10 - (n || pin ? 20 : 0);
         return `<g>
           <rect class="room ${r.certainty === 'approximate' ? 'approx' : ''} ${n ? 'has' : ''} ${ui.mapRoom === r.id ? 'sel' : ''}" x="${r.x}" y="${r.y}" width="${r.w}" height="${r.h}" data-act="room" data-id="${esc(r.id)}"><title>${esc(r.short)}</title></rect>
-          ${lines.map((w, i) => `<text x="${r.x + 6}" y="${r.y + 16 + i * 13}">${esc(w)}</text>`).join('')}
-          ${n ? `<circle class="count" cx="${r.x + r.w - 14}" cy="${r.y + r.h - 14}" r="10"></circle>
-            <text class="count-text" x="${r.x + r.w - 14}" y="${r.y + r.h - 10}" text-anchor="middle">${n}</text>` : ''}
-          ${pin ? `<circle class="pin" cx="${r.x + 14}" cy="${r.y + r.h - 14}" r="6"></circle>` : ''}
+          ${r.lines.map((w, i) => `<text x="${r.x + 5}" y="${r.y + 14 + i * 12}"${w.length * 5.5 > avail ? ` textLength="${avail}" lengthAdjust="spacingAndGlyphs"` : ''}>${esc(w)}</text>`).join('')}
+          ${n ? `<circle class="count" cx="${r.x + r.w - 11}" cy="${r.y + 11}" r="8"></circle>
+            <text class="count-text" x="${r.x + r.w - 11}" y="${r.y + 14}" text-anchor="middle">${n}</text>` : ''}
+          ${pin ? `<circle class="pin" cx="${r.x + r.w - 11}" cy="${r.y + (n ? 27 : 11)}" r="5"></circle>` : ''}
         </g>`;
       }).join('')}
     </svg>
@@ -857,16 +1086,10 @@ function viewMap() {
     return level === lv;
   });
   const boothList = lv === '1' ? `<h2>Booths</h2>
-    <p class="muted">Numbers come from recruiter and company posts. There is no booth coordinate on the GRB plan.</p>
-    <div class="grid">${booths.map(b => {
-      const who = (cache?.data?.status || []).filter(s => s.room_id === b.roomId);
-      return `<button class="offplan ${who.length ? 'has' : ''} ${ui.mapRoom === b.roomId ? 'sel' : ''}" data-act="room" data-id="${esc(b.roomId)}"><strong>Booth ${esc(b.num)}</strong>${who.length ? ` · ${who.length} here` : ''}<br><span class="muted">${esc(b.companies.join(', '))}</span></button>`;
-    }).join('')}</div>` : '';
+    <p class="muted">From recruiter and company posts. Booth spots are not on the GRB plan.</p>
+    <div class="tiles">${booths.map(b => tile(b.roomId, b.num, uniqCompanies(b.companies).join(', '), peopleIn(b.roomId).length)).join('')}</div>` : '';
   const extraRooms = rooms.filter(r => r.level === lv && r.x == null && !String(r.id).startsWith('level-'));
-  const extra = extraRooms.length ? `${drawn.length ? '<h2>Not drawn</h2>' : ''}<div class="grid">${extraRooms.map(r => {
-    const n = peopleIn(r.id).length;
-    return `<button class="offplan ${n ? 'has' : ''} ${ui.mapRoom === r.id ? 'sel' : ''}" data-act="room" data-id="${esc(r.id)}">${esc(r.short)}${n ? ` · ${n} here` : ''}</button>`;
-  }).join('')}</div>` : '';
+  const extra = extraRooms.length ? `${drawn.length ? '<h2>Not drawn</h2>' : ''}<div class="tiles wide">${extraRooms.map(r => tile(r.id, r.short, '', peopleIn(r.id).length)).join('')}</div>` : '';
   let panel = '';
   const r = ui.mapRoom && (roomById(ui.mapRoom) || (String(ui.mapRoom).startsWith('booth-') ? {
     id: ui.mapRoom, label: roomName(ui.mapRoom), short: roomName(ui.mapRoom),
@@ -973,6 +1196,11 @@ function viewCrew() {
   return `<h1>Crew</h1>
     <p class="lead">Pair with friends to see each other’s number and call or text from the app.</p>
     ${crewReady ? '' : '<p class="conflict">Pairing is not on this server yet. Run supabase/crew.sql in the Supabase SQL editor. The guide, map, and group tracker still work.</p>'}
+    ${inviteLink() ? `<div class="card">
+      <div class="name">Invite to the group</div>
+      <p class="muted">This link fills in the group code, so friends only type their name.</p>
+      <div class="actions"><button class="sm primary" data-act="share-invite">${ico('share')}<span>Share invite</span></button><button class="sm" data-act="copy-invite">${ico('copy')}<span>Copy</span></button></div>
+    </div>` : ''}
     ${wait ? `<div class="card"><p><strong>A pair link is waiting.</strong></p><div class="btn-row"><button class="primary" data-act="accept-pending">Accept</button><button data-act="dismiss-pair">Not now</button></div></div>` : ''}
     <div class="card">
       <div class="name">Your pair code</div>
@@ -1005,7 +1233,8 @@ function viewCrew() {
     ${locals.length ? `<h2>Private list on this device</h2><p class="muted">From config.local.js. These numbers stay on this device. They are not uploaded.</p>${locals.map(row => {
       const href = telHref(row.phone);
       return `<div class="row"><div class="name">${esc(row.label)}</div>${callText(href)}</div>`;
-    }).join('')}` : ''}`;
+    }).join('')}` : ''}
+    ${selBar()}`;
 }
 
 function viewMe() {
@@ -1103,7 +1332,11 @@ function render() {
     }
   });
   document.body.classList.toggle('sheet-open', !!$view.querySelector('.sheet'));
+  document.body.classList.toggle('has-selbar', !!$view.querySelector('.selbar'));
   renderToast();
+  renderRibbon();
+  renderRingbar();
+  syncHeadHeight();
   if (ui._keep) {
     const el = document.getElementById(ui._keep);
     if (el) {
@@ -1186,7 +1419,8 @@ function signOut(local) {
   if (live.watchId !== null) stopLive(false);
   if (!local && session) api('sign_out', { p_token: session.token }).catch(() => {});
   session = null; cache = null; outbox = [];
-  ['wa_session', 'wa_state', 'wa_outbox'].forEach(k => { try { localStorage.removeItem(k); } catch {} });
+  ui.sel.clear(); ui.ring = null;
+  ['wa_session', 'wa_state', 'wa_outbox', 'wa_ring_seen'].forEach(k => { try { localStorage.removeItem(k); } catch {} });
   location.hash = '#guide';
   render();
 }
@@ -1213,12 +1447,35 @@ document.addEventListener('click', e => {
   const act = el.dataset.act;
   if (act !== 'pick') { ui.msg = ''; ui.note = ''; }
   if (act === 'pick') {
-    ui.signName = el.dataset.name;
     const nameEl = document.getElementById('name');
-    if (nameEl) nameEl.value = el.dataset.name;
+    const cur = (nameEl?.value ?? ui.signName ?? '').trim();
+    const next = cur === el.dataset.name ? '' : el.dataset.name;
+    ui.signName = next;
+    if (nameEl) nameEl.value = next;
     render();
     const code = document.getElementById('code');
-    if (code && !code.value) code.focus();
+    if (next && code && !code.value) code.focus();
+  }
+  else if (act === 'toggle-code') { ui.showCode = !ui.showCode; render(); document.getElementById('code')?.focus(); }
+  else if (act === 'edit-code') { ui.editCode = true; ui.code = ''; render(); document.getElementById('code')?.focus(); }
+  else if (act === 'sel') {
+    const id = +el.dataset.id;
+    if (ui.sel.has(id)) ui.sel.delete(id); else ui.sel.add(id);
+    render();
+  }
+  else if (act === 'sel-all') { cache?.data.people.forEach(p => { if (p.id !== session.person_id) ui.sel.add(p.id); }); render(); }
+  else if (act === 'sel-clear') { ui.sel.clear(); render(); }
+  else if (act === 'ring') ringPeople([...ui.sel]);
+  else if (act === 'ring-back') { const ids = ui.ring?.from || []; ui.ring = null; ringPeople(ids); }
+  else if (act === 'ring-dismiss') { ui.ring = null; render(); }
+  else if (act === 'ribbon-pause') { ui.ribbonPaused = !ui.ribbonPaused; save('wa_ribbon_paused', ui.ribbonPaused); render(); }
+  else if (act === 'share-invite' || act === 'copy-invite') {
+    const link = inviteLink();
+    if (!link) return;
+    const job = act === 'share-invite' && navigator.share
+      ? navigator.share({ title: 'Where Are You · AfroTech crew', text: 'Join our AfroTech crew:', url: link }).then(() => 'Invite shared.')
+      : (navigator.clipboard ? navigator.clipboard.writeText(link).then(() => 'Invite link copied.') : Promise.reject());
+    job.then(m => { ui.note = m; render(); }).catch(() => { ui.note = link; render(); });
   }
   else if (act === 'toast-close') renderToast();
   else if (act === 'clear-q') { ui.q = ''; const q = document.getElementById('q'); if (q) q.value = ''; render(); document.getElementById('q')?.focus(); }
@@ -1248,7 +1505,7 @@ document.addEventListener('click', e => {
     render();
     const sb = document.querySelector('.searchbox');
     if (sb) {
-      const top = sb.getBoundingClientRect().bottom + scrollY - document.querySelector('.appbar').offsetHeight;
+      const top = sb.getBoundingClientRect().bottom + scrollY - document.querySelector('.appbar').offsetHeight - 8;
       if (scrollY > top) scrollTo(0, top);
     }
   }
@@ -1262,8 +1519,9 @@ document.addEventListener('click', e => {
   else if (act === 'showall') { ui.showAll = true; render(); }
   else if (act === 'goto-room') {
     const room = roomById(el.dataset.id);
+    if (el.closest('#ringbar')) ui.ring = null;
     ui.mapRoom = el.dataset.id;
-    ui.mapLevel = room && room.level !== 'none' ? room.level : 'none';
+    ui.mapLevel = String(el.dataset.id).startsWith('booth-') ? '1' : room && room.level !== 'none' ? room.level : 'none';
     if (location.hash === '#map') render();
     else { ui._keepRoom = true; location.hash = '#map'; }
   }
@@ -1326,7 +1584,8 @@ document.addEventListener('submit', async e => {
   if (act === 'signin') {
     const nameEl = document.getElementById('name');
     const name = (nameEl?.value || ui.signName || '').trim();
-    const code = document.getElementById('code').value;
+    const codeEl = document.getElementById('code');
+    const code = codeEl ? codeEl.value : savedCode();
     ui.code = code;
     ui.signName = name;
     ui.msg = '';
@@ -1336,11 +1595,14 @@ document.addEventListener('submit', async e => {
       session = { token: r.token, person_id: r.person_id, name: r.name || name };
       save('wa_session', session);
       save('wa_last_name', session.name);
+      save('wa_group_code', code);
+      ui.editCode = false;
       net.ok = true;
       if (notifyOn && 'Notification' in window) await askNotify();
       location.hash = pendingPair() ? '#crew' : '#friends';
       await sync();
     } catch (err) {
+      if (err.message === 'wrong code') { save('wa_group_code', ''); ui.code = ''; ui.editCode = true; }
       ui.msg = err.setup ? 'Cannot reach the group server. Close and reopen the page.' :
         err.network ? 'No connection. Sign in needs a connection.' : err.message === 'wrong code' ? 'Wrong group code.' : shortErr(err);
       render();
@@ -1372,11 +1634,14 @@ document.addEventListener('submit', async e => {
 window.addEventListener('hashchange', () => {
   ui.addOpen = false;
   if (!ui._keepRoom) ui.mapRoom = null;
+  const nr = route();
+  if (nr !== 'friends' && nr !== 'crew') ui.sel.clear();
   ui._keepRoom = false;
   render();
   scrollTo(0, 0);
 });
 document.addEventListener('keydown', e => {
+  if ((e.key === 'Enter' || e.key === ' ') && e.target.matches?.('[data-act="sel"]')) { e.preventDefault(); e.target.click(); return; }
   if (e.key === 'Escape' && ui.mapRoom && route() === 'map') { ui.mapRoom = null; render(); }
 });
 window.addEventListener('online', sync);

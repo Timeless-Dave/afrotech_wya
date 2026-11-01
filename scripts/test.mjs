@@ -16,6 +16,7 @@ await db.exec(readFileSync('supabase/schema.sql', 'utf8').replace("'CHANGE-ME'",
 await db.exec(readFileSync('supabase/events.sql', 'utf8'));
 await db.exec(readFileSync('supabase/crew.sql', 'utf8'));
 await db.exec(readFileSync('supabase/easy.sql', 'utf8'));
+await db.exec(readFileSync('supabase/ring.sql', 'utf8'));
 const call = async (fn, args) => {
   const keys = Object.keys(args);
   const r = await db.query(`select ${fn}(${keys.map((k, i) => `${k} => $${i + 1}`).join(', ')}) as r`, Object.values(args));
@@ -221,5 +222,20 @@ await rejects(db.query('select * from pairs'), /permission denied/);
 await rejects(db.query('select phone from people'), /permission denied/);
 await db.exec('reset role');
 ok('anon cannot read pair rows or phone numbers directly');
+
+// Ring
+const sent = await call('send_ring', { p_token: david.token, p_to: [angel.person_id, aziz.person_id, david.person_id, 999999] });
+assert.equal(sent, 2);
+assert.equal(await call('send_ring', { p_token: david.token, p_to: [angel.person_id] }), 0);
+const rang = await call('get_rings', { p_token: angel.token, p_since: null });
+assert.equal(rang.length, 1);
+assert.equal(rang[0].from_id, david.person_id);
+assert.equal((await call('get_rings', { p_token: david.token, p_since: null })).length, 0);
+assert.equal((await call('get_rings', { p_token: angel.token, p_since: rang[0].created_at })).length, 0);
+await rejects(call('send_ring', { p_token: '00000000-0000-0000-0000-000000000000', p_to: [angel.person_id] }), /not signed in/);
+await db.exec('set role anon');
+await rejects(db.query('select * from rings'), /permission denied/);
+await db.exec('reset role');
+ok('ring reaches only the people picked, skips yourself, repeats are throttled, and rings stay private');
 
 console.log(`\nall ${n} checks passed`);
